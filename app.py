@@ -1,71 +1,58 @@
-from flask import Flask, jsonify, abort
+from flask import Flask, jsonify, abort, request
+import storage
 
 app = Flask(__name__)
-
-decks = [
-    [1, 1, 1],
-    [1, 2, 2],
-]
-
-cards = [
-    {
-        'id': 0,
-        'name': 'Vanilla 0',
-        'cost':
-            {
-                'a':1,
-                'b':0,
-                'c':0
-             },
-        'attack': 1,
-        'defense': 1,
-        'tapped': False
-    },
-    {
-        'id': 1,
-        'name': 'Vanilla 2',
-        'cost':
-            {
-                'a':1,
-                'b':1,
-                'c':0
-             },
-        'attack': 2,
-        'defense': 2,
-        'tapped': False
-    }
-]
 
 
 @app.route('/')
 def index():
+    storage.setup()
     return 'welcome to mini-magic'
 
 
 @app.route('/api/v1.0/cards')
-def get_cards():
-    return jsonify(cards=cards)
+def list_cards():
+    return jsonify(cards=storage.list_cards())
 
 
 @app.route('/api/v1.0/cards/<int:card_id>', methods=['GET'])
 def get_card(card_id):
-    result = [card for card in cards if card['id'] == card_id]
-    if len(result) == 0:
+    result = storage.get_card(card_id)
+    if result is None:
         abort(404)
-    return jsonify(card=result[0])
+    return jsonify(card=result)
 
 
 @app.route('/api/v1.0/decks')
-def get_decks():
-    return jsonify(decks=decks)
+def list_decks():
+    return jsonify(decks=storage.list_decks())
 
 
 @app.route('/api/v1.0/decks/<int:deck_id>', methods=['GET'])
 def get_deck(deck_id):
-    if deck_id < 0 or deck_id > len(decks):
+    result = storage.get_deck(deck_id)
+    if result is None:
         abort(404)
-    else:
-        return jsonify(deck=decks[deck_id])
+    return jsonify(deck=result)
+
+
+@app.route('/api/v1.0/matches', methods=['POST'])
+def create_match():
+    if not request.json:
+        abort(400)
+    new_match = dict()
+    new_match['deck'] = request.json['deck']
+    new_match['id'] = storage.create_match(new_match)
+    return jsonify(match=new_match), 201
+
+
+@app.route('/api/v1.0/matches/<int:match_id>', methods=['GET'])
+def get_match(match_id):
+    return jsonify(match=storage.get_match(match_id))
+
+@app.route('/api/v1.0/matches/<int:match_id>/player/<int:player_id>/draw', methods=['GET'])
+def draw(match_id, player_id):
+    pass
 
 
 if __name__ == '__main__':
