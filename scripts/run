@@ -1,0 +1,4 @@
+#!/bin/bash
+PORT=5000
+kill -9 $(lsof -t -i:$PORT)
+flask run
