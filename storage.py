@@ -6,7 +6,6 @@ MATCH_STATE_ERROR = 'forbidden operation'
 
 
 def reset_database():
-    pass
     decks = [
         {'_id': 0, 'cards': [1, 1, 2, 2, 1, 2, 2]},
         {'_id': 1, 'cards': [2, 2, 1, 1, 2, 1, 1]},
@@ -146,11 +145,25 @@ def start_match(match_id):
         if match['state'] != 'waiting_players':
             raise MATCH_STATE_ERROR
         match['state'] = 'phase_1'
-        match['current_player'] = 0
+        match['current_player'] = match['players']['_id']
         connection.database['matches'].update_one({'_id': match_id}, {'$set': match})
         return json.loads(json_util.dumps(match))
 
 
-def draw(match, player_id):
-    pass
+def draw(match_id, player_id):
+    with MongoDBConnection() as connection:
+        match = connection.database['matches'].find_one({'_id': match_id})
+        if match['state'] != 'phase_1':
+            raise MATCH_STATE_ERROR
+        if match['current_player'] != player_id:
+            raise MATCH_STATE_ERROR
+        for player in match['players']:
+            if player['_id'] == player_id:
+                top_card = player['deck']['cards'].pop()
+                player['hand'].append(top_card)
+                break
+        connection.database['matches'].update_one({'_id': match_id}, {'$set': match})
+        return json.loads(json_util.dumps(match))
+
+
 
