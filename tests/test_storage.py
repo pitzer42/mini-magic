@@ -1,7 +1,8 @@
 import unittest
 import storage
 
-from models import Card, Resources, Player, Match, flatten, expand, expand_many
+import models
+
 
 @unittest.skip
 class TestBasicStorage(unittest.TestCase):
@@ -11,20 +12,17 @@ class TestBasicStorage(unittest.TestCase):
         storage.reset()
 
     def test_get_all_cards(self):
-        dicts = storage.all_cards()
-        cards = expand_many(Card, dicts)
+        cards = storage.all_cards()
         for card in cards:
-            self.assertIsNotNone(card._id)
-            self.assertEqual(card.__class__, Card)
-            self.assertEqual(card.cost.__class__, Resources)
+            self.assertIsNotNone(card['_id'])
+            self.assertIn('cost', card)
 
     def test_insert_and_get_card(self):
-        card = Card(_id='3', name='Vanilla 3', cost=Resources(b=1), attack=1, defense=2, tapped=False)
-        card_dict = flatten(card)
-        storage.insert_card(card_dict)
-        other_dict = storage.get_card(card._id)
-        other = expand(Card, other_dict)
-        self.assertEqual(other.__class__, Card)
-        self.assertEqual(other.cost.__class__, Resources)
-        self.assertEqual(card._id, other._id)
-        self.assertEqual(card.cost.b, other.cost.b)
+        card = models.create_card(_id='3', name='Vanilla 3', cost=models.create_resources(b=1), attack=1, defense=2,
+                                  activated=False)
+        storage.insert_card(card)
+        other = storage.get_card(card['_id'])
+        self.assertIsNotNone(card['_id'])
+        self.assertIsNotNone(other['_id'])
+        self.assertEqual(card['_id'], other['_id'])
+        self.assertEqual(card['cost']['b'], card['cost']['b'])

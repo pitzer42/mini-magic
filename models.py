@@ -1,171 +1,144 @@
-class Resources:
-
-    def __init__(self, **kwargs):
-        self.a = 0
-        self.b = 0
-        expand(Resources, kwargs, obj=self)
-
-    def enough(self, cost):
-        for resource_type in self.__dict__:
-            owned = self.__getattribute__(resource_type)
-            desired = cost.__getattribute__(resource_type)
-            if owned < desired:
-                return False
-        return True
-
-    def consume(self, cost):
-        for resource_type in self.__dict__:
-            amount = self.__getattribute__(resource_type)
-            amount -= cost.__getattribute__(resource_type)
-            self.__setattr__(resource_type, amount)
-
-    def empty(self):
-        for resource_type in self.__dict__:
-            self.__setattr__(resource_type, 0)
+import storage
 
 
-class Card:
+class IllegalOperation(Exception):
 
-    def __init__(self, **kwargs):
-        self._id = None
-        self.name = None
-        self.cost = Resources()
-        self.attack = 0
-        self.defense = 0
-        self.tapped = False
-        expand(Card, kwargs, obj=self)
+    def __init__(self, message):
+        super(IllegalOperation, self).__init__(message)
 
 
-class Deck:
-
-    def __init__(self, **kwargs):
-        self._id = None
-        self.cards = list()
-        expand(Deck, kwargs, obj=self)
+class MatchStates:
+    waiting_for_players = 'waiting_for_players'
+    phase_1 = 'phase_1'
 
 
-class Match:
-
-    class ImpossibleOperation(Exception):
-
-        def __init__(self, message):
-            super(Match.ImpossibleOperation, self).__init__(message)
-
-    class States:
-        waiting_for_players = 'waiting_for_players'
-        phase_1 = 'phase_1'
-
-    def __init__(self, **kwargs):
-        self._id = None
-        self.players = list()
-        self.last_draw = None
-        self.current_player_index = 0
-        self.state = Match.States.waiting_for_players
-        expand(Match, kwargs, obj=self)
-
-    def current_player(self):
-        return self.players[self.current_player_index]
-
-    def add_player(self, player):
-        if self.state != Match.States.waiting_for_players:
-            raise Match.ImpossibleOperation('Players cannot join the match after it has already started')
-        self.players.append(player)
-
-    def start(self):
-        if self.state != Match.States.waiting_for_players:
-            raise Match.ImpossibleOperation('A match only starts once')
-        elif len(self.players) < 2:
-            raise Match.ImpossibleOperation('A match cannot start with less than two players')
-        self.state = Match.States.phase_1
-
-    def draw(self):
-        if self.state != Match.States.phase_1:
-            raise Match.ImpossibleOperation('A player can only draw during in Phase 1')
-        if self.last_draw == self.current_player_index:
-            raise Match.ImpossibleOperation('A player can only draw once per turn')
-        self.current_player().draw()
-        self.last_draw = self.current_player_index
-
-    def play_card(self, card_index):
-        if self.state != Match.States.phase_1:
-            raise Match.ImpossibleOperation('A player can only play a card during in Phase 1')
-        card = self.current_player().hand.pop(card_index)
-        if not self.current_player().resources.enough(card.cost):
-            raise Match.ImpossibleOperation('The current player does not have enough resources to play this card')
-        self.current_player().resources.consume(card.cost)
-        self.current_player().field.append(card)
-
-    def end_turn(self):
-        if self.state != Match.States.phase_1:
-            raise Match.ImpossibleOperation('Turn can only end after Phase 1')
-        if self.current_player_index + 1 == len(self.players):
-            self.current_player_index = 0
-        else:
-            self.current_player_index += 1
-        self.state = Match.States.phase_1
-        for player in self.players:
-            player.resources.empty()
-
-
-class Player:
-
-    def __init__(self, **kwargs):
-        self._id = None
-        self.hand = list()
-        self.deck = list()
-        self.field = list()
-        self.discard = list()
-        self.resources = Resources()
-        expand(Player, kwargs, obj=self)
-
-    def draw(self):
-        top_card = self.deck.pop()
-        self.hand.append(top_card)
-
-
-NESTED_ATTRIBUTES_MAP = {
-    'Card.cost': Resources,
-    'Player.resources': Resources,
-    'Player.hand': [Card, ],
-    'Match.players': [Player, ],
-}
-
-
-def expand(cls, flat_dict, obj=None):
-    if obj is None:
-        obj = cls()
-    if type(flat_dict) is not dict:
-        flat_dict = flat_dict.__dict__
-    for key in flat_dict:
-        if hasattr(obj, key):
-            value = flat_dict[key]
-            attribute_name = cls.__name__ + '.' + key
-            if attribute_name in NESTED_ATTRIBUTES_MAP:
-                nested_cls = NESTED_ATTRIBUTES_MAP[attribute_name]
-                if type(nested_cls) is list:
-                    value = [expand(nested_cls[0], item) for item in value]
-                else:
-                    value = expand(nested_cls, value)
-            setattr(obj, key, value)
+def create_resources(**kwargs):
+    obj = dict()
+    obj['a'] = 0
+    obj['b'] = 0
+    obj.update(kwargs)
     return obj
 
 
-def expand_many(cls, flat_dict_list):
-    return [expand(cls, flat_dict) for flat_dict in flat_dict_list]
+def create_card(**kwargs):
+    obj = dict()
+    obj['_id'] = None
+    obj['name'] = None
+    obj['cost'] = create_resources()
+    obj['attack'] = 0
+    obj['defense'] = 0
+    obj['activated'] = False
+    obj.update(kwargs)
+    return obj
 
 
-def flatten(obj):
-    cls_name = type(obj).__name__
-    flat_dict = dict(obj.__dict__)
-    for key in flat_dict:
-        attribute_name = cls_name + '.' + key
-        if attribute_name in NESTED_ATTRIBUTES_MAP:
-            nested_cls = NESTED_ATTRIBUTES_MAP[attribute_name]
-            if type(nested_cls) is list:
-                flat_dict[key] = [flatten(item) for item in flat_dict[key]]
-            else:
-                flat_dict[key] = flatten(flat_dict[key])
-    return flat_dict
+def create_deck(**kwargs):
+    obj = dict()
+    obj['_id'] = None
+    obj['card_ids'] = list()
+    obj.update(kwargs)
+    return obj
 
 
+def create_match(*args, **kwargs):
+    if len(args) > 0:
+        kwargs = dict(args[0])
+    obj = dict()
+    obj['_id'] = None
+    obj['players'] = list()
+    obj['last_draw'] = None
+    obj['current_player_index'] = 0
+    obj['state'] = MatchStates.waiting_for_players
+    obj.update(kwargs)
+    return obj
 
+
+def create_player(**kwargs):
+    obj = dict()
+    obj['_id'] = None
+    obj['hand'] = list()
+    obj['field'] = list()
+    obj['deck'] = list()
+    obj['discard'] = list()
+    obj['health_points'] = 20
+    obj['resources'] = create_resources()
+    obj.update(kwargs)
+    return obj
+
+
+def add_player_to_match(match, player, deck):
+    if match['state'] != MatchStates.waiting_for_players:
+        raise IllegalOperation('Players cannot join the match after it has already started')
+    player['health_points'] = 20
+    player['deck'] = deck['card_ids']
+    if match['players'] is None:
+        match['players'] = list()
+    match['players'].append(player)
+    storage.update_match(match)
+    return match
+
+
+def start_match(match):
+    if match['state'] != MatchStates.waiting_for_players:
+        raise IllegalOperation('A match only starts once')
+    elif len(match['players']) < 2:
+        raise IllegalOperation('A match cannot start with less than two players')
+    match['state'] = MatchStates.phase_1
+
+
+def change_turn(match):
+    if match['state'] != MatchStates.phase_1:
+        raise IllegalOperation('A match must start before change turns')
+    for player in match['players']:
+        empty_resources(player['resources'])
+    match['state'] = MatchStates.phase_1
+    if match['current_player_index'] + 1 < len(match['players']):
+        match['current_player_index'] += 1
+    else:
+        match['current_player_index'] = 0
+    return match
+
+
+def empty_resources(resources):
+    for resource_type in resources:
+        resources[resource_type] = 0
+
+
+def draw(match):
+    if match['state'] != MatchStates.phase_1:
+        raise IllegalOperation('A match must start before a player draw')
+    index = match['current_player_index']
+    player = match['players'][index]
+    card_id = player['deck'].pop()
+    card = storage.get_card(card_id)
+    player['hand'].append(card)
+
+
+def play_card(match, player_index, card_index):
+    if match['state'] != MatchStates.phase_1:
+        raise IllegalOperation('A match must start before a play')
+    player = match['players'][player_index]
+    card = player['hand'][card_index]
+    if not_enough_resources(player['resources'], card['cost']):
+        raise IllegalOperation('Player does not have enough resources to play this card')
+    player['hand'].pop(card_index)
+    consume(player['resources'], card['cost'])
+    if player['field'] is None:
+        player['field'] = list()
+    player['field'].append(card)
+
+
+def not_enough_resources(have, want):
+    for resource_type in want:
+        if want[resource_type] > have[resource_type]:
+            return True
+    return False
+
+
+def consume(have, want):
+    for resource_type in want:
+        have[resource_type] -= want[resource_type]
+
+
+def current_player(match):
+    return match['players'][match['current_player_index']]

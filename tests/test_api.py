@@ -1,11 +1,11 @@
 import unittest
 import requests
 import storage
-from models import Match
+import models
 
 ENDPOINT = 'http://127.0.0.1:5000'
 
-@unittest.skip
+
 class TestMiniMagicAPI(unittest.TestCase):
 
     @classmethod
@@ -39,7 +39,7 @@ class TestMiniMagicAPI(unittest.TestCase):
         url = ENDPOINT + '/api/v1.0/decks/1'
         response = requests.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertIn('cards', response.json())
+        self.assertIn('card_ids', response.json())
 
     def test_get_matches_as_json(self):
         url = ENDPOINT + '/api/v1.0/matches'
@@ -80,4 +80,4 @@ class TestMiniMagicAPI(unittest.TestCase):
         url = ENDPOINT + '/api/v1.0/matches/1'
         response = requests.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()['state'], Match.States.phase_1)
+        self.assertEqual(response.json()['state'], models.MatchStates.phase_1)
