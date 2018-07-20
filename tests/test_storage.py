@@ -1,9 +1,9 @@
 import unittest
 import storage
 
-from models import Card, Resources, Player, Match, flatten
+from models import Card, Resources, Player, Match, flatten, expand, expand_many
 
-
+@unittest.skip
 class TestBasicStorage(unittest.TestCase):
 
     @classmethod
@@ -12,7 +12,7 @@ class TestBasicStorage(unittest.TestCase):
 
     def test_get_all_cards(self):
         dicts = storage.all_cards()
-        cards = Card.create_many(dicts)
+        cards = expand_many(Card, dicts)
         for card in cards:
             self.assertIsNotNone(card._id)
             self.assertEqual(card.__class__, Card)
@@ -23,7 +23,7 @@ class TestBasicStorage(unittest.TestCase):
         card_dict = flatten(card)
         storage.insert_card(card_dict)
         other_dict = storage.get_card(card._id)
-        other = Card.create(other_dict)
+        other = expand(Card, other_dict)
         self.assertEqual(other.__class__, Card)
         self.assertEqual(other.cost.__class__, Resources)
         self.assertEqual(card._id, other._id)

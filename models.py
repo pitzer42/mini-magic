@@ -3,7 +3,7 @@ class Resources:
     def __init__(self, **kwargs):
         self.a = 0
         self.b = 0
-        expand(self, kwargs)
+        expand(Resources, kwargs, obj=self)
 
     def enough(self, cost):
         for resource_type in self.__dict__:
@@ -26,16 +26,6 @@ class Resources:
 
 class Card:
 
-    @classmethod
-    def create_many(cls, dict_list):
-        return [Card.create(flat_dict) for flat_dict in dict_list]
-
-    @classmethod
-    def create(cls, flat_dict):
-        card = Card()
-        expand(card, flat_dict)
-        return card
-
     def __init__(self, **kwargs):
         self._id = None
         self.name = None
@@ -43,25 +33,15 @@ class Card:
         self.attack = 0
         self.defense = 0
         self.tapped = False
-        expand(self, kwargs)
+        expand(Card, kwargs, obj=self)
 
 
 class Deck:
 
-    @classmethod
-    def create_many(cls, dict_list):
-        return [Deck.create(flat_dict) for flat_dict in dict_list]
-
-    @classmethod
-    def create(cls, flat_dict):
-        deck = Deck()
-        expand(deck, flat_dict)
-        return deck
-
     def __init__(self, **kwargs):
         self._id = None
         self.cards = list()
-        expand(self, kwargs)
+        expand(Deck, kwargs, obj=self)
 
 
 class Match:
@@ -75,23 +55,13 @@ class Match:
         waiting_for_players = 'waiting_for_players'
         phase_1 = 'phase_1'
 
-    @classmethod
-    def create_many(cls, dict_list):
-        return [Match.create(flat_dict) for flat_dict in dict_list]
-
-    @classmethod
-    def create(cls, flat_dict):
-        match = Match()
-        expand(match, flat_dict)
-        return match
-
     def __init__(self, **kwargs):
         self._id = None
         self.players = list()
         self.last_draw = None
         self.current_player_index = 0
         self.state = Match.States.waiting_for_players
-        expand(self, kwargs)
+        expand(Match, kwargs, obj=self)
 
     def current_player(self):
         return self.players[self.current_player_index]
@@ -139,16 +109,6 @@ class Match:
 
 class Player:
 
-    @classmethod
-    def create_many(cls, dict_list):
-        return [Player.create(flat_dict) for flat_dict in dict_list]
-
-    @classmethod
-    def create(cls, flat_dict):
-        player = Player()
-        expand(player, flat_dict)
-        return player
-
     def __init__(self, **kwargs):
         self._id = None
         self.hand = list()
@@ -156,59 +116,56 @@ class Player:
         self.field = list()
         self.discard = list()
         self.resources = Resources()
-        expand(self, kwargs)
+        expand(Player, kwargs, obj=self)
 
     def draw(self):
         top_card = self.deck.pop()
         self.hand.append(top_card)
 
 
-"""
-Think in something better.
-Remove nesting_map
-Remove static builders from classes
-"""
-
-
-NESTTING_MAP = {
-    'cost': Resources,
-    'resources': Resources,
-    'players': [Player, ]
+NESTED_ATTRIBUTES_MAP = {
+    'Card.cost': Resources,
+    'Player.resources': Resources,
+    'Player.hand': [Card, ],
+    'Match.players': [Player, ],
 }
 
 
-def expand(obj, flat_dict):
+def expand(cls, flat_dict, obj=None):
+    if obj is None:
+        obj = cls()
     if type(flat_dict) is not dict:
-        return
+        flat_dict = flat_dict.__dict__
     for key in flat_dict:
         if hasattr(obj, key):
-            if key in NESTTING_MAP.keys():
-                if type(NESTTING_MAP[key]) is list:
-                    list_attribute = list()
-                    for item in flat_dict[key]:
-                        nested_obj = NESTTING_MAP[key][0]()
-                        expand(nested_obj, item)
-                        list_attribute.append(nested_obj)
-                    setattr(obj, key, list_attribute)
+            value = flat_dict[key]
+            attribute_name = cls.__name__ + '.' + key
+            if attribute_name in NESTED_ATTRIBUTES_MAP:
+                nested_cls = NESTED_ATTRIBUTES_MAP[attribute_name]
+                if type(nested_cls) is list:
+                    value = [expand(nested_cls[0], item) for item in value]
                 else:
-                    nested_obj = NESTTING_MAP[key]()
-                    expand(nested_obj, flat_dict[key])
-                    setattr(obj, key, nested_obj)
-            else:
-                setattr(obj, key, flat_dict[key])
+                    value = expand(nested_cls, value)
+            setattr(obj, key, value)
+    return obj
+
+
+def expand_many(cls, flat_dict_list):
+    return [expand(cls, flat_dict) for flat_dict in flat_dict_list]
 
 
 def flatten(obj):
-    if not hasattr(obj, '__dict__'):
-        return obj
-    flat = dict(obj.__dict__)
-    for key in flat:
-        if key in NESTTING_MAP.keys():
-            if type(NESTTING_MAP[key]) is list:
-                list_attribute = list()
-                for item in flat[key]:
-                    list_attribute.append(flatten(item))
-                flat[key] = list_attribute
+    cls_name = type(obj).__name__
+    flat_dict = dict(obj.__dict__)
+    for key in flat_dict:
+        attribute_name = cls_name + '.' + key
+        if attribute_name in NESTED_ATTRIBUTES_MAP:
+            nested_cls = NESTED_ATTRIBUTES_MAP[attribute_name]
+            if type(nested_cls) is list:
+                flat_dict[key] = [flatten(item) for item in flat_dict[key]]
             else:
-                flat[key] = flatten(flat[key])
-    return flat
+                flat_dict[key] = flatten(flat_dict[key])
+    return flat_dict
+
+
+

@@ -5,7 +5,7 @@ from models import Match
 
 ENDPOINT = 'http://127.0.0.1:5000'
 
-
+@unittest.skip
 class TestMiniMagicAPI(unittest.TestCase):
 
     @classmethod
@@ -81,5 +81,3 @@ class TestMiniMagicAPI(unittest.TestCase):
         response = requests.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['state'], Match.States.phase_1)
-
-

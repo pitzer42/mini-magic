@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, abort, request, Response
 import storage
-from models import Match, Player, Deck, Card, flatten
+from models import Match, Player, Deck, Card, flatten, expand
 
 app = Flask(__name__)
 
@@ -72,9 +72,9 @@ def join_match(match_id):
         deck_dict = storage.get_deck(deck_id)
         match_dict = storage.get_match(match_id)
 
-        player = Player.create(player_dict)
-        deck = Deck.create(deck_dict)
-        match = Match.create(match_dict)
+        player = expand(Player, player_dict)
+        deck = expand(Deck, deck_dict)
+        match = expand(Match, match_dict)
 
         player.deck = list(deck.cards)
         match.add_player(player)
@@ -90,7 +90,7 @@ def join_match(match_id):
 def start_match(match_id):
     try:
         match_dict = storage.get_match(match_id)
-        match = Match.create(match_dict)
+        match = expand(Match, match_dict)
         match.start()
         match_dict = flatten(match)
         match_dict = storage.update_match(match_dict)
@@ -99,9 +99,15 @@ def start_match(match_id):
         abort(400)
 
 
-@app.route('/api/v1.0/matches/<string:match_id>/player/<int:player_id>/draw', methods=['GET'])
-def draw(match_id, player_id):
-    pass
+@app.route('/api/v1.0/matches/<string:match_id>/players/<int:player_index>/draw', methods=['GET'])
+def draw(match_id, player_index):
+    match = expand(Match, storage.get_match(match_id))
+    player = match.players[player_index - 1]
+    card_id = player.deck.pop()
+    card = expand(Card, storage.get_card(card_id))
+    player.hand.append(card)
+    storage.update_match(flatten(match))
+    return jsonify(flatten(card))
 
 
 if __name__ == '__main__':
