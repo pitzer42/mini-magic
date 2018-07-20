@@ -1,57 +1,6 @@
 from pymongo import MongoClient
-from bson import json_util
-import json
-
-MATCH_STATE_ERROR = 'forbidden operation'
-
-
-def reset_database():
-    decks = [
-        {'_id': 0, 'cards': [1, 1, 2, 2, 1, 2, 2]},
-        {'_id': 1, 'cards': [2, 2, 1, 1, 2, 1, 1]},
-    ]
-
-    cards = [
-        {
-            '_id': 1,
-            'name': 'Vanilla 0',
-            'cost':
-                {
-                    'a': 1,
-                    'b': 0,
-                    'c': 0
-                },
-            'attack': 1,
-            'defense': 1,
-            'tapped': False
-        },
-        {
-            '_id': 2,
-            'name': 'Vanilla 1',
-            'cost':
-                {
-                    'a': 1,
-                    'b': 1,
-                    'c': 0
-                },
-            'attack': 2,
-            'defense': 2,
-            'tapped': False
-        }
-    ]
-
-    matches = [{'_id': 1, 'state': 'waiting_players'}]
-
-    with MongoDBConnection() as connection:
-        def reset_collection(collection_name, new_items):
-            collection = connection.database[collection_name]
-            collection.drop()
-            for item in new_items:
-                collection.insert_one(item)
-
-        reset_collection('cards', cards)
-        reset_collection('decks', decks)
-        reset_collection('matches', matches)
+from models import Match, Card, Resources, Deck, Player, flatten
+from bson import ObjectId
 
 
 class MongoDBConnection(object):
@@ -70,100 +19,92 @@ class MongoDBConnection(object):
         self.connection.close()
 
 
-def list_cards():
+def reset():
     with MongoDBConnection() as connection:
-        result = list()
-        all_cards = connection.database['cards'].find()
-        for card in all_cards:
-            card_json = json.loads(json_util.dumps(card))
-            result.append(card_json)
-        return result
+        connection.database['Cards'].drop()
+        insert_card(flatten(Card(_id=1, name='Vanilla 1', cost=Resources(a=1), attack=1, defense=1, tapped=False)))
+        insert_card(flatten(Card(_id=2, name='Vanilla 2', cost=Resources(b=1), attack=2, defense=1, tapped=False)))
+
+        connection.database['Matches'].drop()
+        insert_match(flatten(Match(_id=1)))
+
+        connection.database['Decks'].drop()
+        insert_deck(flatten(Deck(_id=1, cards=[1, 1, 1, 2, 2, 2])))
+
+        connection.database['Players'].drop()
+        insert_player(flatten(Player(_id=1)))
+        insert_player(flatten(Player(_id=2)))
+
+
+def all_docs(collection_name):
+    with MongoDBConnection() as connection:
+        docs = list()
+        for doc in connection.database[collection_name].find():
+            doc['_id'] = str(doc['_id'])
+            docs.append(doc)
+        return docs
+
+
+def all_cards():
+    return all_docs('Cards')
+
+
+def all_decks():
+    return all_docs('Decks')
+
+
+def all_matches():
+    return all_docs('Matches')
+
+
+def all_players():
+    return all_docs('Players')
+
+
+def insert_doc(collection_name, doc):
+    with MongoDBConnection() as connection:
+        if '_id' in doc and doc['_id'] is None:
+            doc['_id'] = str(ObjectId())
+        connection.database[collection_name].insert_one(doc)
+
+
+def insert_card(card_dict):
+    insert_doc('Cards', card_dict)
+
+
+def insert_deck(deck_dict):
+    insert_doc('Decks', deck_dict)
+
+
+def insert_match(match_dict):
+    return insert_doc('Matches', match_dict)
+
+
+def insert_player(player_dict):
+    return insert_doc('Players', player_dict)
+
+
+def get_doc(collection_name, doc_id):
+    with MongoDBConnection() as connection:
+        return connection.database[collection_name].find_one({'_id': doc_id})
 
 
 def get_card(card_id):
-    with MongoDBConnection() as connection:
-        card = connection.database['cards'].find_one({'_id': card_id})
-        return json.loads(json_util.dumps(card))
-
-
-def list_decks():
-    with MongoDBConnection() as connection:
-        result = list()
-        all_decks = connection.database['decks'].find()
-        for deck in all_decks:
-            deck_json = json.loads(json_util.dumps(deck))
-            result.append(deck_json)
-        return result
+    return get_doc('Cards', card_id)
 
 
 def get_deck(deck_id):
-    with MongoDBConnection() as connection:
-        deck = connection.database['decks'].find_one({'_id': deck_id})
-        return json.loads(json_util.dumps(deck))
-
-
-def create_match():
-    with MongoDBConnection() as connection:
-        match = dict()
-        match['state'] = 'waiting_players'
-        connection.database['matches'].insert(match)
-        return json.loads(json_util.dumps(match))
-
-
-def list_matches():
-    with MongoDBConnection() as connection:
-        result = list()
-        all_matches = connection.database['matches'].find()
-        for match in all_matches:
-            match_json = json.loads(json_util.dumps(match))
-            result.append(match_json)
-        return result
+    return get_doc('Decks', deck_id)
 
 
 def get_match(match_id):
+    return get_doc('Matches', match_id)
+
+
+def get_player(player_id):
+    return get_doc('Players', player_id)
+
+
+def update_match(match_dict):
     with MongoDBConnection() as connection:
-        match = connection.database['matches'].find_one({'_id': match_id})
-        return json.loads(json_util.dumps(match))
-
-
-def add_player_to_match(match_id, player_id, deck_id):
-    with MongoDBConnection() as connection:
-        match = connection.database['matches'].find_one({'_id': match_id})
-        if match['state'] != 'waiting_players':
-            raise MATCH_STATE_ERROR
-        player = {'_id': player_id, 'deck_id': deck_id}
-        if 'players' not in match:
-            match['players'] = list()
-        match['players'].append(player)
-        connection.database['matches'].update_one({'_id': match_id}, {'$set': match})
-        return json.loads(json_util.dumps(match))
-
-
-def start_match(match_id):
-    with MongoDBConnection() as connection:
-        match = connection.database['matches'].find_one({'_id': match_id})
-        if match['state'] != 'waiting_players':
-            raise MATCH_STATE_ERROR
-        match['state'] = 'phase_1'
-        match['current_player'] = match['players']['_id']
-        connection.database['matches'].update_one({'_id': match_id}, {'$set': match})
-        return json.loads(json_util.dumps(match))
-
-
-def draw(match_id, player_id):
-    with MongoDBConnection() as connection:
-        match = connection.database['matches'].find_one({'_id': match_id})
-        if match['state'] != 'phase_1':
-            raise MATCH_STATE_ERROR
-        if match['current_player'] != player_id:
-            raise MATCH_STATE_ERROR
-        for player in match['players']:
-            if player['_id'] == player_id:
-                top_card = player['deck']['cards'].pop()
-                player['hand'].append(top_card)
-                break
-        connection.database['matches'].update_one({'_id': match_id}, {'$set': match})
-        return json.loads(json_util.dumps(match))
-
-
-
+        connection.database['Matches'].update_one({'_id': match_dict['_id']}, {'$set': match_dict})

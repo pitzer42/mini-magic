@@ -1,40 +1,70 @@
-from bson import json_util
-import json
+class Resources:
+
+    def __init__(self, **kwargs):
+        self.a = 0
+        self.b = 0
+        expand(self, kwargs)
+
+    def enough(self, cost):
+        for resource_type in self.__dict__:
+            owned = self.__getattribute__(resource_type)
+            desired = cost.__getattribute__(resource_type)
+            if owned < desired:
+                return False
+        return True
+
+    def consume(self, cost):
+        for resource_type in self.__dict__:
+            amount = self.__getattribute__(resource_type)
+            amount -= cost.__getattribute__(resource_type)
+            self.__setattr__(resource_type, amount)
+
+    def empty(self):
+        for resource_type in self.__dict__:
+            self.__setattr__(resource_type, 0)
 
 
-class Model:
+class Card:
 
-    def __init__(self, *initial_data, **kwargs):
-        for dictionary in initial_data:
-            self.from_dict(dictionary)
-        self.from_dict(kwargs)
+    @classmethod
+    def create_many(cls, dict_list):
+        return [Card.create(flat_dict) for flat_dict in dict_list]
 
-    def to_json(self):
-        return json_util.dumps(self.__dict__)
+    @classmethod
+    def create(cls, flat_dict):
+        card = Card()
+        expand(card, flat_dict)
+        return card
 
-    def from_json(self, string):
-        dictionary = json.loads(string)
-        self.from_dict(dictionary)
-
-    def from_dict(self, dictionary):
-        for key in dictionary:
-            if key in self.__dict__:
-                setattr(self, key, dictionary[key])
-
-
-class Card(Model):
-
-    def __init__(self, *initial_data, **kwargs):
-        self.id = 0
+    def __init__(self, **kwargs):
+        self._id = None
         self.name = None
-        self.cost = dict()
+        self.cost = Resources()
         self.attack = 0
         self.defense = 0
         self.tapped = False
-        super(Card, self).__init__(initial_data, kwargs)
+        expand(self, kwargs)
 
 
-class Match(Model):
+class Deck:
+
+    @classmethod
+    def create_many(cls, dict_list):
+        return [Deck.create(flat_dict) for flat_dict in dict_list]
+
+    @classmethod
+    def create(cls, flat_dict):
+        deck = Deck()
+        expand(deck, flat_dict)
+        return deck
+
+    def __init__(self, **kwargs):
+        self._id = None
+        self.cards = list()
+        expand(self, kwargs)
+
+
+class Match:
 
     class ImpossibleOperation(Exception):
 
@@ -42,16 +72,26 @@ class Match(Model):
             super(Match.ImpossibleOperation, self).__init__(message)
 
     class States:
-        waiting_for_players = 'waiting_for_players',
-        phase_1 = 'phase_1',
+        waiting_for_players = 'waiting_for_players'
+        phase_1 = 'phase_1'
 
-    def __init__(self, *initial_data, **kwargs):
-        self.id = 0
+    @classmethod
+    def create_many(cls, dict_list):
+        return [Match.create(flat_dict) for flat_dict in dict_list]
+
+    @classmethod
+    def create(cls, flat_dict):
+        match = Match()
+        expand(match, flat_dict)
+        return match
+
+    def __init__(self, **kwargs):
+        self._id = None
         self.players = list()
         self.last_draw = None
         self.current_player_index = 0
         self.state = Match.States.waiting_for_players
-        super(Match, self).__init__(initial_data, kwargs)
+        expand(self, kwargs)
 
     def current_player(self):
         return self.players[self.current_player_index]
@@ -80,7 +120,7 @@ class Match(Model):
         if self.state != Match.States.phase_1:
             raise Match.ImpossibleOperation('A player can only play a card during in Phase 1')
         card = self.current_player().hand.pop(card_index)
-        if not self.current_player().resources.are_enough(card.cost):
+        if not self.current_player().resources.enough(card.cost):
             raise Match.ImpossibleOperation('The current player does not have enough resources to play this card')
         self.current_player().resources.consume(card.cost)
         self.current_player().field.append(card)
@@ -97,44 +137,79 @@ class Match(Model):
             player.resources.empty()
 
 
-class Player(Model):
+class Player:
 
-    def __init__(self, *initial_data, **kwargs):
-        self.id = 0
+    @classmethod
+    def create_many(cls, dict_list):
+        return [Player.create(flat_dict) for flat_dict in dict_list]
+
+    @classmethod
+    def create(cls, flat_dict):
+        player = Player()
+        expand(player, flat_dict)
+        return player
+
+    def __init__(self, **kwargs):
+        self._id = None
         self.hand = list()
         self.deck = list()
         self.field = list()
         self.discard = list()
         self.resources = Resources()
-        super(Player, self).__init__(initial_data, kwargs)
+        expand(self, kwargs)
 
     def draw(self):
         top_card = self.deck.pop()
         self.hand.append(top_card)
 
 
-class Resources(Model):
+"""
+Think in something better.
+Remove nesting_map
+Remove static builders from classes
+"""
 
-    def __init__(self, *initial_data, **kwargs):
-        self.a = 0
-        self.b = 0
-        super(Resources, self).__init__(initial_data, kwargs)
 
-    def are_enough(self, cost):
-        for resource_type in self.__dict__:
-            owned = self.__getattribute__(resource_type)
-            desired = cost.__getattribute__(resource_type)
-            if owned < desired:
-                return False
-        return True
+NESTTING_MAP = {
+    'cost': Resources,
+    'resources': Resources,
+    'players': [Player, ],
+    'deck': [Card, ],
+}
 
-    def consume(self, cost):
-        for resource_type in self.__dict__:
-            amount = self.__getattribute__(resource_type)
-            amount -= cost.__getattribute__(resource_type)
-            self.__setattr__(resource_type, amount)
 
-    def empty(self):
-        for resource_type in self.__dict__:
-            self.__setattr__(resource_type, 0)
+def expand(obj, flat_dict):
+    if type(flat_dict) is not dict:
+        flat_dict = flatten(flat_dict)
+    for key in flat_dict:
+        if hasattr(obj, key):
+            if key in NESTTING_MAP.keys():
+                if type(NESTTING_MAP[key]) is list:
+                    list_attribute = list()
+                    for item in flat_dict[key]:
+                        nested_obj = NESTTING_MAP[key][0]()
+                        expand(nested_obj, item)
+                        list_attribute.append(nested_obj)
+                    setattr(obj, key, list_attribute)
+                else:
+                    nested_obj = NESTTING_MAP[key]()
+                    expand(nested_obj, flat_dict[key])
+                    setattr(obj, key, nested_obj)
+            else:
+                setattr(obj, key, flat_dict[key])
 
+
+def flatten(obj):
+    if not hasattr(obj, '__dict__'):
+        return obj
+    flat = dict(obj.__dict__)
+    for key in flat:
+        if key in NESTTING_MAP.keys():
+            if type(NESTTING_MAP[key]) is list:
+                list_attribute = list()
+                for item in flat[key]:
+                    list_attribute.append(flatten(item))
+                flat[key] = list_attribute
+            else:
+                flat[key] = flatten(flat[key])
+    return flat

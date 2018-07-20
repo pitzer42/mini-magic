@@ -1,21 +1,0 @@
-kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]
- * Environment: production
-   WARNING: Do not use the development server in a production environment.
-   Use a production WSGI server instead.
- * Debug mode: off
- * Running on http://127.0.0.1:5000/ (Press CTRL+C to quit)
-  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                 Dload  Upload   Total   Spent    Left  Speed
-  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:01 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:02 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:03 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:04 --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:05 --:--:--     0127.0.0.1 - - [18/Jul/2018 21:33:10] "GET / HTTP/1.1" 200 -
-  0     0    0     0    0     0      0      0 --:--:--  0:00:05 --:--:--     0100    21  100    21    0     0      4      0  0:00:05  0:00:05 --:--:--     5
-welcome to mini-magic127.0.0.1 - - [18/Jul/2018 21:33:13] "GET /api/v1.0/cards/1 HTTP/1.1" 200 -
-127.0.0.1 - - [18/Jul/2018 21:33:16] "GET /api/v1.0/cards HTTP/1.1" 200 -
-127.0.0.1 - - [18/Jul/2018 21:33:17] "GET /api/v1.0/decks/1 HTTP/1.1" 200 -
-127.0.0.1 - - [18/Jul/2018 21:33:20] "GET /api/v1.0/decks HTTP/1.1" 200 -
-127.0.0.1 - - [18/Jul/2018 21:33:25] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [18/Jul/2018 21:33:28] "GET /api/v1.0/matches/1 HTTP/1.1" 200 -
-127.0.0.1 - - [18/Jul/2018 21:33:29] "POST /api/v1.0/matches HTTP/1.1" 201 -
-127.0.0.1 - - [18/Jul/2018 21:33:32] "POST /api/v1.0/matches/1 HTTP/1.1" 200 -
-127.0.0.1 - - [18/Jul/2018 21:33:34] "GET /api/v1.0/matches/1 HTTP/1.1" 200 -
-127.0.0.1 - - [18/Jul/2018 21:33:36] "POST /api/v1.0/matches/1/start HTTP/1.1" 200 -
-127.0.0.1 - - [18/Jul/2018 21:33:40] "GET /api/v1.0/matches/1 HTTP/1.1" 200 -

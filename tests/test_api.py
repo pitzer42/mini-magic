@@ -7,11 +7,15 @@ ENDPOINT = 'http://127.0.0.1:5000'
 
 class TestMiniMagicAPI(unittest.TestCase):
 
+    @classmethod
+    def setUpClass(cls):
+        storage.reset()
+
     def test_get_index(self):
         response = requests.get(ENDPOINT)
         self.assertEqual(response.status_code, 200)
 
-    def test_get_cards_returns_a_json(self):
+    def test_get_cards_as_json(self):
         url = ENDPOINT + '/api/v1.0/cards'
         response = requests.get(url)
         self.assertEqual(response.status_code, 200)
@@ -42,7 +46,7 @@ class TestMiniMagicAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('_id', response.json())
 
-    def test_post_match_creates_a_new_match(self):
+    def test_post_matches_creates_a_new_match(self):
         url = ENDPOINT + '/api/v1.0/matches'
         response = requests.post(url)
         self.assertEqual(response.status_code, 201)
@@ -57,7 +61,10 @@ class TestMiniMagicAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('players', response.json())
 
-    def test_post_start_match_id(self):
+    def test_post_to_match_start(self):
+        url = ENDPOINT + '/api/v1.0/matches/1'
+        requests.post(url, json={'player_id': 1, 'deck_id': 1})
+        requests.post(url, json={'player_id': 1, 'deck_id': 1})
         url = ENDPOINT + '/api/v1.0/matches/1/start'
         response = requests.post(url)
         self.assertEqual(response.status_code, 200)
