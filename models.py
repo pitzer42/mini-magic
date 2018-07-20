@@ -12,7 +12,9 @@ class MatchStates:
     phase_1 = 'phase_1'
 
 
-def create_resources(**kwargs):
+def create_resources(*args, **kwargs):
+    if len(args) > 0:
+        kwargs = dict(args[0])
     obj = dict()
     obj['a'] = 0
     obj['b'] = 0
@@ -20,7 +22,9 @@ def create_resources(**kwargs):
     return obj
 
 
-def create_card(**kwargs):
+def create_card(*args, **kwargs):
+    if len(args) > 0:
+        kwargs = dict(args[0])
     obj = dict()
     obj['_id'] = None
     obj['name'] = None
@@ -32,7 +36,9 @@ def create_card(**kwargs):
     return obj
 
 
-def create_deck(**kwargs):
+def create_deck(*args, **kwargs):
+    if len(args) > 0:
+        kwargs = dict(args[0])
     obj = dict()
     obj['_id'] = None
     obj['card_ids'] = list()
@@ -53,7 +59,9 @@ def create_match(*args, **kwargs):
     return obj
 
 
-def create_player(**kwargs):
+def create_player(*args, **kwargs):
+    if len(args) > 0:
+        kwargs = dict(args[0])
     obj = dict()
     obj['_id'] = None
     obj['hand'] = list()
@@ -107,8 +115,7 @@ def empty_resources(resources):
 def draw(match):
     if match['state'] != MatchStates.phase_1:
         raise IllegalOperation('A match must start before a player draw')
-    index = match['current_player_index']
-    player = match['players'][index]
+    player = current_player()
     card_id = player['deck'].pop()
     card = storage.get_card(card_id)
     player['hand'].append(card)
