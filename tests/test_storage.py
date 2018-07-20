@@ -19,7 +19,7 @@ class TestBasicStorage(unittest.TestCase):
             self.assertEqual(card.cost.__class__, Resources)
 
     def test_insert_and_get_card(self):
-        card = Card(_id=3, name='Vanilla 3', cost=Resources(b=1), attack=1, defense=2, tapped=False)
+        card = Card(_id='3', name='Vanilla 3', cost=Resources(b=1), attack=1, defense=2, tapped=False)
         card_dict = flatten(card)
         storage.insert_card(card_dict)
         other_dict = storage.get_card(card._id)

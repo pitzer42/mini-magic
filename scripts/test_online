@@ -3,6 +3,8 @@ ENDPOINT="127.0.0.1:5000"
 echo setting up
 {
     bash scripts/run_server &
+
 } &> scripts/out.txt
+sleep 3
 python -m unittest
 exit

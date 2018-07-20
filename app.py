@@ -76,16 +76,7 @@ def join_match(match_id):
         deck = Deck.create(deck_dict)
         match = Match.create(match_dict)
 
-        last_card_id = None
-        card_dict = None
-        for card_id in deck.cards:
-            if last_card_id is None or last_card_id != card_id:
-                last_card_id = card_id
-                card_dict = storage.get_card(card_id)
-            card = Card.create(card_dict)
-            player.deck.append(card)
-
-        player.deck = deck.cards
+        player.deck = list(deck.cards)
         match.add_player(player)
         match_dict = flatten(match)
 

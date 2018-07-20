@@ -173,14 +173,13 @@ Remove static builders from classes
 NESTTING_MAP = {
     'cost': Resources,
     'resources': Resources,
-    'players': [Player, ],
-    'deck': [Card, ],
+    'players': [Player, ]
 }
 
 
 def expand(obj, flat_dict):
     if type(flat_dict) is not dict:
-        flat_dict = flatten(flat_dict)
+        return
     for key in flat_dict:
         if hasattr(obj, key):
             if key in NESTTING_MAP.keys():

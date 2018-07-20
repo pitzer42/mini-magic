@@ -1,6 +1,7 @@
 import unittest
 import requests
 import storage
+from models import Match
 
 ENDPOINT = 'http://127.0.0.1:5000'
 
@@ -28,7 +29,7 @@ class TestMiniMagicAPI(unittest.TestCase):
         self.assertIn('name', response.json())
         self.assertIn('cost', response.json())
 
-    def test_get_decks_returns_a_json(self):
+    def test_get_decks_as_json(self):
         url = ENDPOINT + '/api/v1.0/decks'
         response = requests.get(url)
         self.assertEqual(response.status_code, 200)
@@ -40,11 +41,18 @@ class TestMiniMagicAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('cards', response.json())
 
+    def test_get_matches_as_json(self):
+        url = ENDPOINT + '/api/v1.0/matches'
+        response = requests.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(response.json())
+
     def test_get_match_by_id(self):
         url = ENDPOINT + '/api/v1.0/matches/1'
         response = requests.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertIn('_id', response.json())
+        self.assertIn('state', response.json())
 
     def test_post_matches_creates_a_new_match(self):
         url = ENDPOINT + '/api/v1.0/matches'
@@ -52,25 +60,26 @@ class TestMiniMagicAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertIn('state', response.json())
 
-    def test_post_player_id_and_deck_to_match_to_join(self):
+    def test_post_player_id_and_deck_id_to_match_to_join(self):
         url = ENDPOINT + '/api/v1.0/matches/1'
-        response = requests.post(url, json={'player_id': 1, 'deck_id': 1})
+        response = requests.post(url, json={'player_id': '1', 'deck_id': '1'})
         self.assertEqual(response.status_code, 200)
         url = ENDPOINT + '/api/v1.0/matches/1'
         response = requests.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertIn('players', response.json())
+        self.assertGreater(len(response.json()['players']), 0)
 
     def test_post_to_match_start(self):
         url = ENDPOINT + '/api/v1.0/matches/1'
-        requests.post(url, json={'player_id': 1, 'deck_id': 1})
-        requests.post(url, json={'player_id': 1, 'deck_id': 1})
+        requests.post(url, json={'player_id': '1', 'deck_id': '1'})
+        requests.post(url, json={'player_id': '1', 'deck_id': '1'})
         url = ENDPOINT + '/api/v1.0/matches/1/start'
         response = requests.post(url)
         self.assertEqual(response.status_code, 200)
+
         url = ENDPOINT + '/api/v1.0/matches/1'
         response = requests.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()['state'], 'phase_1')
+        self.assertEqual(response.json()['state'], Match.States.phase_1)
 
 
