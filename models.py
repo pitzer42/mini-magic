@@ -138,22 +138,7 @@ class MiniMagicEngine(LogListener):
         self.publish(Events.Prompt, player_id)
 
 
-class IllegalOperation(Exception):
 
-    def __init__(self, message):
-        super(IllegalOperation, self).__init__(message)
-
-
-def legal(*events):
-    def decorator(f):
-        def wrapped_f(*args, **kwargs):
-            _match = args[0]
-            last_event = _match['log'][-1]['name']
-            if last_event not in events:
-                raise IllegalOperation('This operation is not allowed during ' + last_event)
-            f(*args, **kwargs)
-        return wrapped_f
-    return decorator
 
 
 @legal(Events.Setup)

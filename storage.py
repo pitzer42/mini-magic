@@ -1,5 +1,5 @@
 from pymongo import MongoClient
-import  models
+import models
 from bson import ObjectId
 
 
@@ -51,6 +51,17 @@ def _all_docs(collection_name):
             doc['_id'] = str(doc['_id'])
             docs.append(doc)
         return docs
+
+
+def add_doc_beta(collection_name, doc):
+    with MongoDBConnection() as connection:
+        result = connection.database[collection_name].insert_one(doc.to_dict())
+        doc._id = result.inserted_id
+
+
+def get_doc_beta(collection_name, doc):
+    with MongoDBConnection() as connection:
+        return connection.database[collection_name].find_one({'_id': doc._id})
 
 
 def _add_doc(collection_name, doc):
