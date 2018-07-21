@@ -65,7 +65,7 @@ def match(*args, **kwargs):
     obj['last_draw'] = None
     obj['current_player_index'] = 0
     obj.update(kwargs)
-    publish(obj['log'], Events.Setup)
+        publish(obj['log'], Events.Setup)
     return obj
 
 
@@ -93,8 +93,10 @@ class Events:
     Refresh = 'refresh'
     Draw = 'draw'
     Prompt = 'prompt'
+    TurnEnd = 'turn_end'
     GameOver = 'game_over'
     Play = 'play'
+    Use = 'use'
     Activate = 'activate'
     Yield = 'yield'
 
@@ -137,6 +139,10 @@ class MiniMagicEngine(LogListener):
         draw(self.match, player_id, 1)
         self.publish(Events.Prompt, player_id)
 
+    def _on_yield(self, player_id):
+        pass
+
+
 
 class IllegalOperation(Exception):
 
@@ -177,17 +183,45 @@ def draw(_match, player_id, amount):
         _hand.append(_card)
 
 
-@legal(Events.Prompt)
+def is_not_being_prompted(_match, _player):
+    last_event = _match['log'][-1]
+    prompted_id = last_event['args'][0]
+    return _player['_id'] != prompted_id
+
+
+@legal(Events.Prompt, Events.Play, Events.Use)
 def play_card(_match, player_index, card_index):
     _player = _match['players'][player_index]
+    if is_not_being_prompted(_match, _player):
+        raise IllegalOperation('Waiting for other player')
     _card = _player['hand'][card_index]
     if not_enough_resources(_player['resources'], _card['cost']):
         raise IllegalOperation('Player does not have enough resources to play this card')
     _player['hand'].pop(card_index)
     consume(_player['resources'], _card['cost'])
-    _player['board'].append(card)
+    _player['board'].append(_card)
+    publish(_match['log'], Events.Play, _player['_id'], _card['_id'])
 
 
+@legal(Events.Prompt, Events.Play, Events.Use)
+def use_card(_match, player_index, card_index):
+    _player = _match['players'][player_index]
+    if is_not_being_prompted(_match, _player):
+        raise IllegalOperation('Waiting for other player')
+    _card = _player['board'][card_index]
+    _card['activated'] = True
+    effect_id = _card['effect_id']
+    if effect_id is not None:
+        publish(_match['log'], Events.Use, _player['_id'], _card['_id'])
+        apply_effect(_match, _player, _card, effect_id)
+
+
+@legal(Events.Prompt, Events.Play, Events.Use)
+def yield_play(_match, player_index):
+    _player = _match['players'][player_index]
+    if is_not_being_prompted(_match, _player):
+        raise IllegalOperation('Waiting for other player')
+    publish(_match['log'], Events.Yield, _player['_id'])
 
 """
 def end_turn(match):
@@ -223,17 +257,7 @@ def consume(have, want):
         have[resource_type] -= want[resource_type]
 
 
-def use_card(match, player_index, card_index):
-    if match['state'] != Events.Prompt:
-        raise IllegalOperation('A match must start before use any card')
-    player = match['players'][player_index]
-    card = player['board'][card_index]
-    if card['activated']:
-        raise IllegalOperation('This card was already used this turn')
-    card['activated'] = True
-    effect_id = card['effect_id']
-    if effect_id is not None:
-        apply_effect(match, player, card, effect_id)
+
 
 
 def apply_effect(match, owner, card, effect_id):

@@ -8,6 +8,11 @@ ENDPOINT = 'http://127.0.0.1:5000'
 
 class TestAPIv2(unittest.TestCase):
 
+    def assert_get_url(self, url, expected_status=200):
+        response = requests.get(ENDPOINT + url)
+        self.assertEqual(response.status_code, expected_status)
+        return response
+
     @classmethod
     def setUpClass(cls):
         storage.reset()
@@ -17,20 +22,14 @@ class TestAPIv2(unittest.TestCase):
         storage.insert_match(test_match)
 
     def test_get_match_by_id_returns_json(self):
-        url = ENDPOINT + '/matches/test_match'
-        response = requests.get(url)
-        self.assertEqual(response.status_code, 200)
+        response = self.assert_get_url('/matches/test_match')
         self.assertIsNotNone(response.json())
 
     def test_get_nonexistent_match_returns_404(self):
-        url = ENDPOINT + '/matches/this-match-does-not-exist'
-        response = requests.get(url)
-        self.assertEqual(response.status_code, 404)
+        self.assert_get_url('/matches/this-match-does-not-exist', expected_status=404)
 
     def test_get_log_of_a_match_by_id_returns_json(self):
-        url = ENDPOINT + '/matches/test_match/log'
-        response = requests.get(url)
-        self.assertEqual(response.status_code, 200)
+        response = self.assert_get_url('/matches/test_match/log')
         self.assertIsNotNone(response.json())
         self.assertIn('log', response.json())
 
@@ -58,22 +57,43 @@ class TestAPIv2(unittest.TestCase):
         content = {'player_id': '3', 'deck_id': '1'}
         response = requests.post(url, json=content)
         self.assertEqual(response.status_code, 400)
-        self.assertBeginTurnLog()
 
-    def assertBeginTurnLog(self):
-        url = ENDPOINT + '/matches/test_match/log'
+    def test_cannot_play_without_enough_resources(self):
+        url = ENDPOINT + '/matches/test_match_2/players/1/play/1'
+        response = requests.post(url)
+        self.assertEqual(response.status_code, 400)
+
+    def test_simulation(self):
+        url = ENDPOINT + '/matches/test_match_3'
+        requests.post(url)
+        url = ENDPOINT + '/matches/test_match_3/join'
+        content = {'player_id': '1', 'deck_id': '1'}
+        requests.post(url, json=content)
+        content = {'player_id': '2', 'deck_id': '1'}
+        requests.post(url, json=content)
+
+        url = ENDPOINT + '/matches/test_match_3/players/1/play/1'
+        requests.post(url)
+
+        url = ENDPOINT + '/matches/test_match_3/players/1/use/1'
+        requests.post(url)
+
+        url = ENDPOINT + '/matches/test_match_3'
         response = requests.get(url)
-        self.assertEqual(response.status_code, 200)
-        response_json = response.json()
-        self.assertIsNotNone(response_json)
-        self.assertIn('log', response_json)
-        log = response_json['log']
-        self.assertGreater(len(log), 0)
-        event = log[0]
-        self.assertIn('seq', event)
-        self.assertIn('name', event)
-        self.assertIn('args', event)
+        match = response.json()
+        card_in_play = match['players'][0]['board'][0]
+        resources = match['players'][0]['resources']
+        self.assertTrue(card_in_play['activated'])
+        self.assertGreater(resources['a'], 0)
 
+        url = ENDPOINT + '/matches/test_match_3/players/1/yield'
+        requests.post(url)
 
+        url = ENDPOINT + '/matches/test_match_3'
+        response = requests.get(url)
+        match = response.json()
+        turn_end_event = [e for e in match['log'] if e['name'] == models.Events.TurnEnd]
+        self.assertIsNotNone(turn_end_event)
+        self.assertGreater(len(turn_end_event), 0)
 
 

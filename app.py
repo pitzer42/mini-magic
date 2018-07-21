@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, abort, request
+from flask import Flask, jsonify, abort, request, Response
 import storage
 import models
 from functools import wraps
@@ -43,6 +43,26 @@ def get_log(match_id):
     return jsonify(log=log)
 
 
+@app.route('/matches/<string:match_id>', methods=['POST'])
+def create_match_with_id(match_id):
+    match = models.match(_id=match_id)
+    try:
+        storage.insert_match(match)
+    except Exception:
+        return Response(409)
+    return jsonify(match)
+
+
+@app.route('/matches', methods=['POST'])
+def create_match():
+    match = models.match()
+    try:
+        storage.insert_match(match)
+    except Exception:
+        return Response(400)
+    return jsonify(match)
+
+
 @app.route('/matches/<string:match_id>/join', methods=['POST'])
 @require_json_fields('player_id', 'deck_id')
 def join(match_id, player_id, deck_id):
@@ -52,12 +72,74 @@ def join(match_id, player_id, deck_id):
     models.MiniMagicEngine(match)
     try:
         models.add_player_to_match(match, player, deck)
-    except models.IllegalOperation as e:
-        message = str(e)
-        print(message)
-        abort(400, description=message)
+    except models.IllegalOperation as error:
+        error_message = str(error)
+        print(error_message)
+        abort(400, description=error_message)
     storage.update_match(match)
-    return jsonify(match)
+    return Response(status=200)
+
+
+@app.route('/matches/<string:match_id>/players/<int:player_index>/play/<int:card_index>', methods=['POST'])
+def play(match_id, player_index, card_index):
+    player_index -= 1
+    card_index -= 1
+    match = get_or_404('Matches', match_id)
+    models.MiniMagicEngine(match)
+    try:
+        models.play_card(match, player_index, card_index)
+    except IndexError as error:
+        error_message = str(error)
+        print(error_message)
+        abort(404, description=error_message)
+    except models.IllegalOperation as error:
+        error_message = str(error)
+        print(error_message)
+        abort(400, description=error_message)
+    storage.update_match(match)
+    return Response(status=200)
+
+
+@app.route('/matches/<string:match_id>/players/<int:player_index>/use/<int:card_index>', methods=['POST'])
+def use(match_id, player_index, card_index):
+    player_index -= 1
+    card_index -= 1
+    match = get_or_404('Matches', match_id)
+    models.MiniMagicEngine(match)
+    try:
+        models.use_card(match, player_index, card_index)
+    except IndexError as error:
+        error_message = str(error)
+        print(error_message)
+        abort(404, description=error_message)
+    except models.IllegalOperation as error:
+        error_message = str(error)
+        print(error_message)
+        abort(400, description=error_message)
+    storage.update_match(match)
+    return Response(status=200)
+
+
+@app.route('/matches/<string:match_id>/players/<int:player_index>/yield', methods=['POST'])
+def yield_play(match_id, player_index):
+    player_index -= 1
+    match = get_or_404('Matches', match_id)
+    models.MiniMagicEngine(match)
+    try:
+        models.yield_play(match, player_index)
+    except IndexError as error:
+        error_message = str(error)
+        print(error_message)
+        abort(404, description=error_message)
+    except models.IllegalOperation as error:
+        error_message = str(error)
+        print(error_message)
+        abort(400, description=error_message)
+    storage.update_match(match)
+    return Response(status=200)
+
+
+
 
 """
 
