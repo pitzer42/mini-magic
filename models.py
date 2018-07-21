@@ -1,15 +1,27 @@
 import storage
 
 
+class GameOverException(Exception):
+    pass
+
+
 class IllegalOperation(Exception):
 
     def __init__(self, message):
         super(IllegalOperation, self).__init__(message)
 
 
-class MatchStates:
-    waiting_for_players = 'waiting_for_players'
-    phase_1 = 'phase_1'
+class Events:
+    Setup = 'setup'
+    Ready = 'ready'
+    InitialDraw = 'initial_draw'
+    Refresh = 'refresh'
+    Draw = 'draw'
+    GameOver = 'game_over'
+    Prompt = 'prompt'
+    Play = 'play'
+    Activate = 'activate'
+    Yield = 'yield'
 
 
 def create_resources(*args, **kwargs):
@@ -52,11 +64,12 @@ def create_match(*args, **kwargs):
         kwargs = dict(args[0])
     obj = dict()
     obj['_id'] = None
+    obj['log'] = list()
     obj['players'] = list()
     obj['last_draw'] = None
     obj['current_player_index'] = 0
-    obj['state'] = MatchStates.waiting_for_players
     obj.update(kwargs)
+    log_event(obj, Events.Setup)
     return obj
 
 
@@ -75,8 +88,18 @@ def create_player(*args, **kwargs):
     return obj
 
 
+def log_event(match, tag, *arg):
+    match['log'].append(dict(seq=len(match['log']), tag=tag, arg=arg))
+
+
+def last_event(match):
+    if len(match['log']) == 0:
+        return None
+    return match['log'][-1]['tag']
+
+
 def add_player_to_match(match, player, deck):
-    if match['state'] != MatchStates.waiting_for_players:
+    if last_event(match) != Events.Setup:
         raise IllegalOperation('Players cannot join the match after it has already started')
     player['health_points'] = 20
     player['deck'] = deck['card_ids']
@@ -88,19 +111,20 @@ def add_player_to_match(match, player, deck):
 
 
 def start_match(match):
-    if match['state'] != MatchStates.waiting_for_players:
+    if last_event(match) != Events.Setup:
         raise IllegalOperation('A match only starts once')
     elif len(match['players']) < 2:
         raise IllegalOperation('A match cannot start with less than two players')
-    match['state'] = MatchStates.phase_1
+    log_event(match, Events.Ready)
 
 
+"""
 def end_turn(match):
-    if match['state'] != MatchStates.phase_1:
+    if match['state'] != Events.phase_1:
         raise IllegalOperation('A match must start before change turns')
     for player in match['players']:
         empty_resources(player['resources'])
-    match['state'] = MatchStates.phase_1
+    match['state'] = Events.phase_1
     if match['current_player_index'] + 1 < len(match['players']):
         match['current_player_index'] += 1
     else:
@@ -108,6 +132,7 @@ def end_turn(match):
     for card in current_player(match)['board']:
         card['activated'] = False
     return match
+"""
 
 
 def empty_resources(resources):
@@ -115,17 +140,20 @@ def empty_resources(resources):
         resources[resource_type] = 0
 
 
-def draw(match):
-    if match['state'] != MatchStates.phase_1:
-        raise IllegalOperation('A match must start before a player draw')
-    player = current_player(match)
-    card_id = player['deck'].pop()
-    card = storage.get_card(card_id)
-    player['hand'].append(card)
+def draw(player, amount):
+    deck = player['deck']
+    hand = player['hand']
+    for i in range(0, amount):
+        try:
+            card_id = deck.pop()
+        except IndexError:
+            raise GameOverException()
+        card = storage.get_card(card_id)
+        hand.append(card)
 
 
 def play_card(match, player_index, card_index):
-    if match['state'] != MatchStates.phase_1:
+    if match['state'] != Events.Prompt:
         raise IllegalOperation('A match must start before a play')
     player = match['players'][player_index]
     card = player['hand'][card_index]
@@ -153,7 +181,7 @@ def current_player(match):
 
 
 def use_card(match, player_index, card_index):
-    if match['state'] != MatchStates.phase_1:
+    if match['state'] != Events.Prompt:
         raise IllegalOperation('A match must start before use any card')
     player = match['players'][player_index]
     card = player['board'][card_index]

@@ -36,7 +36,7 @@ def reset():
         insert_match(models.create_match(_id=1))
 
         connection.database['Decks'].drop()
-        insert_deck(models.create_deck(_id=1, card_ids=['1', '1', '1', '2', '4', '3']))
+        insert_deck(models.create_deck(_id=1, card_ids=['1', '2', '4', '3'] * 5))
 
         connection.database['Players'].drop()
         insert_player(models.create_player(_id=1))
@@ -116,6 +116,14 @@ def get_deck(deck_id):
 
 def get_match(match_id):
     return _get_doc('Matches', match_id)
+
+
+def get_log(match_id):
+    with MongoDBConnection() as connection:
+        match = connection.database['Matches'].find_one({'_id': str(match_id)})
+        if match is None:
+            return None
+        return dict(log=match['log'])
 
 
 def get_player(player_id):

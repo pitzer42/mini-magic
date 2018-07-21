@@ -6,6 +6,7 @@ import models
 ENDPOINT = 'http://127.0.0.1:5000'
 
 
+@unittest.skip
 class DataAPI(unittest.TestCase):
 
     @classmethod

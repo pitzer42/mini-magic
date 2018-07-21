@@ -3,6 +3,7 @@ import json
 import models
 
 
+@unittest.skip
 class TestModelInterchangeFormats(unittest.TestCase):
 
     def test_decode_json_to_model(self):
@@ -24,6 +25,7 @@ class TestModelInterchangeFormats(unittest.TestCase):
         self.assertIn('"cost": {', json_string)
 
 
+@unittest.skip
 class TestResource(unittest.TestCase):
 
     def test_can_empty_a_resource(self):
