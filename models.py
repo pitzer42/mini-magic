@@ -65,7 +65,7 @@ def match(*args, **kwargs):
     obj['last_draw'] = None
     obj['current_player_index'] = 0
     obj.update(kwargs)
-        publish(obj['log'], Events.Setup)
+    publish(obj['log'], Events.Setup)
     return obj
 
 
