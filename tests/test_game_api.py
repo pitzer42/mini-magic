@@ -29,7 +29,7 @@ class GameAPI(unittest.TestCase):
     def create_match(self):
         url = ENDPOINT + '/api/v1.0/matches'
         response = requests.post(url)
-        match = models.create_match(response.json())
+        match = models.match(response.json())
         self.assertIsNotNone(match['_id'])
         self.assertEqual(match['state'], models.MatchStates.waiting_for_players)
         return match['_id']
@@ -47,7 +47,7 @@ class GameAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         url = ENDPOINT + '/api/v1.0/matches/' + match_id
         response = requests.get(url)
-        match = models.create_match(response.json())
+        match = models.match(response.json())
         self.assertEqual(match['state'], models.MatchStates.phase_1)
 
     def draw(self, match_id):

@@ -27,20 +27,21 @@ class MongoDBConnection(object):
 def reset():
     with MongoDBConnection() as connection:
         connection.database['Cards'].drop()
-        insert_card(models.create_card(_id=1, name='Vanilla 1', cost=models.create_resources(a=1), attack=1, defense=1))
-        insert_card(models.create_card(_id=2, name='Vanilla 2', cost=models.create_resources(b=1), attack=2, defense=1))
-        insert_card(models.create_card(_id=3, name='Mana', cost=models.create_resources(), effect_id='add_a'))
-        insert_card(models.create_card(_id=4, name='Bolt', cost=models.create_resources(a=1), effect_id='1_damage'))
+        insert_card(models.card(_id=1, name='Vanilla 1', cost=models.resources(a=1), attack=1, defense=1))
+        insert_card(models.card(_id=2, name='Vanilla 2', cost=models.resources(b=1), attack=2, defense=1))
+        insert_card(models.card(_id=3, name='Mana', cost=models.resources(), effect_id='add_a'))
+        insert_card(models.card(_id=4, name='Bolt', cost=models.resources(a=1), effect_id='1_damage'))
 
         connection.database['Matches'].drop()
-        insert_match(models.create_match(_id=1))
+        insert_match(models.match(_id=1))
 
         connection.database['Decks'].drop()
-        insert_deck(models.create_deck(_id=1, card_ids=['1', '2', '4', '3'] * 5))
+        insert_deck(models.deck(_id=1, card_ids=['1', '2', '4', '3'] * 5))
 
         connection.database['Players'].drop()
-        insert_player(models.create_player(_id=1))
-        insert_player(models.create_player(_id=2))
+        insert_player(models.player(_id=1))
+        insert_player(models.player(_id=2))
+        insert_player(models.player(_id=3))
 
 
 def _all_docs(collection_name):
@@ -60,7 +61,7 @@ def _add_doc(collection_name, doc):
         connection.database[collection_name].insert_one(doc)
 
 
-def _get_doc(collection_name, doc_id):
+def get_doc(collection_name, doc_id):
     with MongoDBConnection() as connection:
         return connection.database[collection_name].find_one({'_id': str(doc_id)})
 
@@ -107,15 +108,15 @@ def insert_player(player_dict):
 
 
 def get_card(card_id):
-    return _get_doc('Cards', card_id)
+    return get_doc('Cards', card_id)
 
 
 def get_deck(deck_id):
-    return _get_doc('Decks', deck_id)
+    return get_doc('Decks', deck_id)
 
 
 def get_match(match_id):
-    return _get_doc('Matches', match_id)
+    return get_doc('Matches', match_id)
 
 
 def get_log(match_id):
@@ -127,4 +128,4 @@ def get_log(match_id):
 
 
 def get_player(player_id):
-    return _get_doc('Players', player_id)
+    return get_doc('Players', player_id)

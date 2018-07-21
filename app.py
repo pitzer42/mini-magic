@@ -1,9 +1,31 @@
-from flask import Flask, jsonify, abort, request, Response
+from flask import Flask, jsonify, abort, request
 import storage
 import models
-import game
+from functools import wraps
 
 app = Flask(__name__)
+
+
+def require_json_fields(*fields):
+    def decorator(view):
+        @wraps(view)
+        def wrapped_view(*args, **kwargs):
+            if request.json is None:
+                abort(400, description='json was expected in the request')
+            for field in fields:
+                if field not in request.json:
+                    abort(400, description=field + ' field was expected in json request')
+                kwargs[field] = request.json[field]
+            return view(*args, **kwargs)
+        return wrapped_view
+    return decorator
+
+
+def get_or_404(collection, _id):
+    doc = storage.get_doc(collection, _id)
+    if doc is None:
+        abort(404)
+    return doc
 
 
 @app.route('/matches/<string:match_id>', methods=['GET'])
@@ -15,47 +37,25 @@ def get_match(match_id):
 
 
 @app.route('/matches/<string:match_id>/log', methods=['GET'])
-def get_match_log(match_id):
-    log = storage.get_log(match_id)
-    if log is None:
-        abort(404)
-    return jsonify(log)
-
-
-def require_fields_in_request_json(*args):
-    if request.json is None:
-        abort(400, description='json was expected in the request')
-    for field in args:
-        if field not in request.json:
-            abort(400, description=field+' field was expected in json request')
+def get_log(match_id):
+    match = get_or_404('Matches', match_id)
+    log = match['log']
+    return jsonify(log=log)
 
 
 @app.route('/matches/<string:match_id>/join', methods=['POST'])
-def post_join_match(match_id):
-    require_fields_in_request_json('player_id', 'deck_id')
-    match = storage.get_match(match_id)
-    if match is None:
-        abort(404)
-    player_id = request.json['player_id']
-    deck_id = request.json['deck_id']
-    player = storage.get_player(player_id)
-    deck = storage.get_deck(deck_id)
+@require_json_fields('player_id', 'deck_id')
+def join(match_id, player_id, deck_id):
+    match = get_or_404('Matches', match_id)
+    player = get_or_404('Players', player_id)
+    deck = get_or_404('Decks', deck_id)
+    models.MiniMagicEngine(match)
     try:
         models.add_player_to_match(match, player, deck)
     except models.IllegalOperation as e:
-        abort(400, description=str(e))
-    storage.update_match(match)
-    return jsonify(match)
-
-
-@app.route('/matches/<string:match_id>/start', methods=['POST'])
-def post_start_match(match_id):
-    match = storage.get_match(match_id)
-    try:
-        models.start_match(match)
-    except models.IllegalOperation:
-        abort(400, description=str(e))
-    game.update(match)
+        message = str(e)
+        print(message)
+        abort(400, description=message)
     storage.update_match(match)
     return jsonify(match)
 

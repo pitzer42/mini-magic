@@ -10,17 +10,17 @@ class TestModelInterchangeFormats(unittest.TestCase):
         expected_value = 42
         json_string = '{"_id": ' + str(expected_value) + '}'
         json_dict = json.loads(json_string)
-        model = models.create_match(json_dict)
+        model = models.match(json_dict)
         self.assertEqual(expected_value, model['_id'])
 
     def test_encode_model_to_json(self):
-        model = models.create_match()
+        model = models.match()
         model['_id'] = 42
         json_string = json.dumps(model)
         self.assertIn('"_id": 42', json_string)
 
     def test_encode_nested_models(self):
-        model = models.create_card(_id=1, name='Vanilla 1', cost=models.create_resources(a=1), attack=1, defense=1, tapped=False)
+        model = models.card(_id=1, name='Vanilla 1', cost=models.resources(a=1), attack=1, defense=1, tapped=False)
         json_string = json.dumps(model)
         self.assertIn('"cost": {', json_string)
 
@@ -29,21 +29,21 @@ class TestModelInterchangeFormats(unittest.TestCase):
 class TestResource(unittest.TestCase):
 
     def test_can_empty_a_resource(self):
-        resource = models.create_resources(a=10)
+        resource = models.resources(a=10)
         models.empty_resources(resource)
         self.assertEqual(resource['a'], 0)
 
     def test_enough_resources_to_pay_cost(self):
-        resource = models.create_resources()
-        cost = models.create_resources()
+        resource = models.resources()
+        cost = models.resources()
         self.assertFalse(models.not_enough_resources(resource, cost))
         for resource_type in cost:
             cost[resource_type] += 1
         self.assertTrue(models.not_enough_resources(resource, cost))
 
     def test_consume_another_resource_decreases_amount_of_resources(self):
-        resource = models.create_resources(a=10)
-        cost = models.create_resources(a=3)
+        resource = models.resources(a=10)
+        cost = models.resources(a=3)
         models.consume(resource, cost)
         self.assertEqual(resource['a'], 7)
 

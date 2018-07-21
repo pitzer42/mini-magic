@@ -1,30 +1,11 @@
 import storage
+from log_list import LogListener, publish
+
+MIN_PLAYERS_PER_MATCH = 2
+INITIAL_HAND_SIZE = 7
 
 
-class GameOverException(Exception):
-    pass
-
-
-class IllegalOperation(Exception):
-
-    def __init__(self, message):
-        super(IllegalOperation, self).__init__(message)
-
-
-class Events:
-    Setup = 'setup'
-    Ready = 'ready'
-    InitialDraw = 'initial_draw'
-    Refresh = 'refresh'
-    Draw = 'draw'
-    GameOver = 'game_over'
-    Prompt = 'prompt'
-    Play = 'play'
-    Activate = 'activate'
-    Yield = 'yield'
-
-
-def create_resources(*args, **kwargs):
+def resources(*args, **kwargs):
     if len(args) > 0:
         kwargs = dict(args[0])
     obj = dict()
@@ -34,13 +15,13 @@ def create_resources(*args, **kwargs):
     return obj
 
 
-def create_card(*args, **kwargs):
+def card(*args, **kwargs):
     if len(args) > 0:
         kwargs = dict(args[0])
     obj = dict()
     obj['_id'] = None
     obj['name'] = None
-    obj['cost'] = create_resources()
+    obj['cost'] = resources()
     obj['attack'] = 0
     obj['defense'] = 0
     obj['activated'] = False
@@ -49,7 +30,7 @@ def create_card(*args, **kwargs):
     return obj
 
 
-def create_deck(*args, **kwargs):
+def deck(*args, **kwargs):
     if len(args) > 0:
         kwargs = dict(args[0])
     obj = dict()
@@ -59,21 +40,7 @@ def create_deck(*args, **kwargs):
     return obj
 
 
-def create_match(*args, **kwargs):
-    if len(args) > 0:
-        kwargs = dict(args[0])
-    obj = dict()
-    obj['_id'] = None
-    obj['log'] = list()
-    obj['players'] = list()
-    obj['last_draw'] = None
-    obj['current_player_index'] = 0
-    obj.update(kwargs)
-    log_event(obj, Events.Setup)
-    return obj
-
-
-def create_player(*args, **kwargs):
+def player(*args, **kwargs):
     if len(args) > 0:
         kwargs = dict(args[0])
     obj = dict()
@@ -83,39 +50,143 @@ def create_player(*args, **kwargs):
     obj['deck'] = list()
     obj['discard'] = list()
     obj['health_points'] = 20
-    obj['resources'] = create_resources()
+    obj['resources'] = resources()
     obj.update(kwargs)
     return obj
 
 
-def log_event(match, tag, *arg):
-    match['log'].append(dict(seq=len(match['log']), tag=tag, arg=arg))
+def match(*args, **kwargs):
+    if len(args) > 0:
+        kwargs = dict(args[0])
+    obj = dict()
+    obj['_id'] = None
+    obj['log'] = list()
+    obj['players'] = list()
+    obj['last_draw'] = None
+    obj['current_player_index'] = 0
+    obj.update(kwargs)
+    publish(obj['log'], Events.Setup)
+    return obj
 
 
-def last_event(match):
-    if len(match['log']) == 0:
-        return None
-    return match['log'][-1]['tag']
+def has_enough_players(_match):
+    return len(_match['players']) >= MIN_PLAYERS_PER_MATCH
 
 
-def add_player_to_match(match, player, deck):
-    if last_event(match) != Events.Setup:
-        raise IllegalOperation('Players cannot join the match after it has already started')
-    player['health_points'] = 20
-    player['deck'] = deck['card_ids']
-    if match['players'] is None:
-        match['players'] = list()
-    match['players'].append(player)
-    storage.update_match(match)
-    return match
+def find_player_by_id(_match, _id):
+    for _player in _match['players']:
+        if _player['_id'] == _id:
+            return _player
 
 
-def start_match(match):
-    if last_event(match) != Events.Setup:
-        raise IllegalOperation('A match only starts once')
-    elif len(match['players']) < 2:
-        raise IllegalOperation('A match cannot start with less than two players')
-    log_event(match, Events.Ready)
+def current_player(_match):
+    index = _match['current_player_index']
+    return _match['players'][index]
+
+
+class Events:
+    Setup = 'setup'
+    PlayerJoin = 'player_join'
+    Ready = 'ready'
+    InitialDraw = 'initial_draw'
+    TurnBegin = 'turn_begin'
+    Refresh = 'refresh'
+    Draw = 'draw'
+    Prompt = 'prompt'
+    GameOver = 'game_over'
+    Play = 'play'
+    Activate = 'activate'
+    Yield = 'yield'
+
+
+class GameOverException(Exception):
+    pass
+
+
+class MiniMagicEngine(LogListener):
+
+    def __init__(self, *args):
+        super(MiniMagicEngine, self).__init__()
+        if len(args) != 1:
+            raise Exception('a dict was expected as parameter')
+        self.match = args[0]
+        self.connect('log', self.match)
+
+    def _on_player_join(self, player_id):
+        if has_enough_players(self.match):
+            self.publish(Events.Ready)
+        else:
+            self.publish(Events.Setup)
+
+    def _on_ready(self):
+        self.publish(Events.InitialDraw)
+        self.publish(Events.TurnBegin, current_player(self.match)['_id'])
+        self.publish(Events.Refresh)
+
+    def _on_initial_draw(self):
+        for _player in self.match['players']:
+            draw(self.match, _player['_id'], INITIAL_HAND_SIZE)
+
+    def _on_refresh(self):
+        _player = current_player(self.match)
+        for _card in _player['board']:
+            _card['activated'] = False
+        self.publish(Events.Draw, _player['_id'])
+
+    def _on_draw(self, player_id):
+        draw(self.match, player_id, 1)
+        self.publish(Events.Prompt, player_id)
+
+
+class IllegalOperation(Exception):
+
+    def __init__(self, message):
+        super(IllegalOperation, self).__init__(message)
+
+
+def legal(*events):
+    def decorator(f):
+        def wrapped_f(*args, **kwargs):
+            _match = args[0]
+            last_event = _match['log'][-1]['name']
+            if last_event not in events:
+                raise IllegalOperation('This operation is not allowed during ' + last_event)
+            f(*args, **kwargs)
+        return wrapped_f
+    return decorator
+
+
+@legal(Events.Setup)
+def add_player_to_match(_match, _player, _deck):
+    _player['deck'] = _deck['card_ids']
+    _match['players'].append(_player)
+    publish(_match['log'], Events.PlayerJoin, _player['_id'])
+
+
+@legal(Events.InitialDraw, Events.Draw)
+def draw(_match, player_id, amount):
+    _player = find_player_by_id(_match, player_id)
+    _deck = _player['deck']
+    _hand = _player['hand']
+    for i in range(0, amount):
+        try:
+            card_id = _deck.pop()
+        except IndexError:
+            raise GameOverException()
+        _card = storage.get_card(card_id)
+        _hand.append(_card)
+
+
+@legal(Events.Prompt)
+def play_card(_match, player_index, card_index):
+    _player = _match['players'][player_index]
+    _card = _player['hand'][card_index]
+    if not_enough_resources(_player['resources'], _card['cost']):
+        raise IllegalOperation('Player does not have enough resources to play this card')
+    _player['hand'].pop(card_index)
+    consume(_player['resources'], _card['cost'])
+    _player['board'].append(card)
+
 
 
 """
@@ -140,30 +211,6 @@ def empty_resources(resources):
         resources[resource_type] = 0
 
 
-def draw(player, amount):
-    deck = player['deck']
-    hand = player['hand']
-    for i in range(0, amount):
-        try:
-            card_id = deck.pop()
-        except IndexError:
-            raise GameOverException()
-        card = storage.get_card(card_id)
-        hand.append(card)
-
-
-def play_card(match, player_index, card_index):
-    if match['state'] != Events.Prompt:
-        raise IllegalOperation('A match must start before a play')
-    player = match['players'][player_index]
-    card = player['hand'][card_index]
-    if not_enough_resources(player['resources'], card['cost']):
-        raise IllegalOperation('Player does not have enough resources to play this card')
-    player['hand'].pop(card_index)
-    consume(player['resources'], card['cost'])
-    player['board'].append(card)
-
-
 def not_enough_resources(have, want):
     for resource_type in want:
         if want[resource_type] > have[resource_type]:
@@ -174,10 +221,6 @@ def not_enough_resources(have, want):
 def consume(have, want):
     for resource_type in want:
         have[resource_type] -= want[resource_type]
-
-
-def current_player(match):
-    return match['players'][match['current_player_index']]
 
 
 def use_card(match, player_index, card_index):
