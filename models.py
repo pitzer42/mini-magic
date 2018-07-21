@@ -32,6 +32,7 @@ def create_card(*args, **kwargs):
     obj['attack'] = 0
     obj['defense'] = 0
     obj['activated'] = False
+    obj['effect_id'] = None
     obj.update(kwargs)
     return obj
 
@@ -65,7 +66,7 @@ def create_player(*args, **kwargs):
     obj = dict()
     obj['_id'] = None
     obj['hand'] = list()
-    obj['field'] = list()
+    obj['board'] = list()
     obj['deck'] = list()
     obj['discard'] = list()
     obj['health_points'] = 20
@@ -94,7 +95,7 @@ def start_match(match):
     match['state'] = MatchStates.phase_1
 
 
-def change_turn(match):
+def end_turn(match):
     if match['state'] != MatchStates.phase_1:
         raise IllegalOperation('A match must start before change turns')
     for player in match['players']:
@@ -104,6 +105,8 @@ def change_turn(match):
         match['current_player_index'] += 1
     else:
         match['current_player_index'] = 0
+    for card in current_player(match)['board']:
+        card['activated'] = False
     return match
 
 
@@ -115,7 +118,7 @@ def empty_resources(resources):
 def draw(match):
     if match['state'] != MatchStates.phase_1:
         raise IllegalOperation('A match must start before a player draw')
-    player = current_player()
+    player = current_player(match)
     card_id = player['deck'].pop()
     card = storage.get_card(card_id)
     player['hand'].append(card)
@@ -130,9 +133,7 @@ def play_card(match, player_index, card_index):
         raise IllegalOperation('Player does not have enough resources to play this card')
     player['hand'].pop(card_index)
     consume(player['resources'], card['cost'])
-    if player['field'] is None:
-        player['field'] = list()
-    player['field'].append(card)
+    player['board'].append(card)
 
 
 def not_enough_resources(have, want):
@@ -149,3 +150,39 @@ def consume(have, want):
 
 def current_player(match):
     return match['players'][match['current_player_index']]
+
+
+def use_card(match, player_index, card_index):
+    if match['state'] != MatchStates.phase_1:
+        raise IllegalOperation('A match must start before use any card')
+    player = match['players'][player_index]
+    card = player['board'][card_index]
+    if card['activated']:
+        raise IllegalOperation('This card was already used this turn')
+    card['activated'] = True
+    effect_id = card['effect_id']
+    if effect_id is not None:
+        apply_effect(match, player, card, effect_id)
+
+
+def apply_effect(match, owner, card, effect_id):
+    {
+        'add_a': add_a,
+        'add_b': add_b,
+        '1_damage': one_damage
+    }[effect_id](match, owner, card)
+
+
+def add_a(match, owner, card):
+    owner['resources']['a'] += 1
+
+
+def add_b(match, owner, card):
+    owner['resources']['b'] += 1
+
+
+def one_damage(match, owner, card):
+    for player in match['players']:
+        if player['_id'] != owner['_id']:
+            player['health_points'] -= 1
+            return

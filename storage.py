@@ -29,13 +29,14 @@ def reset():
         connection.database['Cards'].drop()
         insert_card(models.create_card(_id=1, name='Vanilla 1', cost=models.create_resources(a=1), attack=1, defense=1))
         insert_card(models.create_card(_id=2, name='Vanilla 2', cost=models.create_resources(b=1), attack=2, defense=1))
-        insert_card(models.create_card(_id=3, name='Mana', cost=models.create_resources(), attack=0, defense=0))
+        insert_card(models.create_card(_id=3, name='Mana', cost=models.create_resources(), effect_id='add_a'))
+        insert_card(models.create_card(_id=4, name='Bolt', cost=models.create_resources(a=1), effect_id='1_damage'))
 
         connection.database['Matches'].drop()
         insert_match(models.create_match(_id=1))
 
         connection.database['Decks'].drop()
-        insert_deck(models.create_deck(_id=1, card_ids=['1', '1', '1', '2', '2', '3']))
+        insert_deck(models.create_deck(_id=1, card_ids=['1', '1', '1', '2', '4', '3']))
 
         connection.database['Players'].drop()
         insert_player(models.create_player(_id=1))

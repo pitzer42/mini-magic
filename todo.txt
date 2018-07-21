@@ -1,0 +1,19 @@
+event log
+    create a list in match object to store all the events that have occurred, so clients can keep track of what
+    changed since the checkpoint.
+    match['log'] # ['end_turn:player_id', 'begin_turn:player_id', 'reset', 'draw', 'activate:card_id', ...]
+
+define a subset of rules
+    limit targets for effects
+    simplification of combat rules
+    prompt and yield (stack)
+
+design for extensibility
+    how easy is to add a new effect?
+    how easy is to change the order of phases?
+
+access level by player
+    keep a player for looking at the opponent's hand
+    avoid a player to make a move with his opponent's cards
+
+

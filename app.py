@@ -4,8 +4,16 @@ import models
 
 app = Flask(__name__)
 
+@app.route('/match/<string:match_id', methods=['GET'])
+def get_or_create_match(match_id):
+    match = storage.get_match(match_id)
+    if match is None:
+        match = models.create_match(match_id)
+        storage.insert_match(match)
 
-# ________________________________________________________Fetching
+
+
+# ________________________________________________________Data API
 
 @app.route('/', methods=['GET'])
 def index():
@@ -57,7 +65,7 @@ def get_match(match_id):
     return jsonify(result)
 
 
-# ________________________________________________________ Game Logic
+# ________________________________________________________Game Logic
 
 @app.route('/api/v1.0/matches', methods=['POST'])
 def create_match():
@@ -110,6 +118,28 @@ def play(match_id, player_index, card_index):
     try:
         match = storage.get_match(match_id)
         models.play_card(match, player_index - 1, card_index - 1)
+        storage.update_match(match)
+        return jsonify(match)
+    except models.IllegalOperation as error:
+        abort(400, str(error))
+
+
+@app.route('/api/v1.0/matches/<string:match_id>/players/<int:player_index>/board/<int:card_index>/use', methods=['POST'])
+def use(match_id, player_index, card_index):
+    try:
+        match = storage.get_match(match_id)
+        models.use_card(match, player_index - 1, card_index - 1)
+        storage.update_match(match)
+        return jsonify(match)
+    except models.IllegalOperation as error:
+        abort(400, str(error))
+
+
+@app.route('/api/v1.0/matches/<string:match_id>/end_turn', methods=['POST'])
+def end_turn(match_id):
+    try:
+        match = storage.get_match(match_id)
+        models.end_turn(match)
         storage.update_match(match)
         return jsonify(match)
     except models.IllegalOperation as error:

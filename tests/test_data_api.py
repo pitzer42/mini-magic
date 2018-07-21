@@ -6,7 +6,7 @@ import models
 ENDPOINT = 'http://127.0.0.1:5000'
 
 
-class TestMiniMagicAPI(unittest.TestCase):
+class DataAPI(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -53,31 +53,3 @@ class TestMiniMagicAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('_id', response.json())
         self.assertIn('state', response.json())
-
-    def test_post_matches_creates_a_new_match(self):
-        url = ENDPOINT + '/api/v1.0/matches'
-        response = requests.post(url)
-        self.assertEqual(response.status_code, 201)
-        self.assertIn('state', response.json())
-
-    def test_post_player_id_and_deck_id_to_match_to_join(self):
-        url = ENDPOINT + '/api/v1.0/matches/1'
-        response = requests.post(url, json={'player_id': '1', 'deck_id': '1'})
-        self.assertEqual(response.status_code, 200)
-        url = ENDPOINT + '/api/v1.0/matches/1'
-        response = requests.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertGreater(len(response.json()['players']), 0)
-
-    def test_post_to_match_start(self):
-        url = ENDPOINT + '/api/v1.0/matches/1'
-        requests.post(url, json={'player_id': '1', 'deck_id': '1'})
-        requests.post(url, json={'player_id': '1', 'deck_id': '1'})
-        url = ENDPOINT + '/api/v1.0/matches/1/start'
-        response = requests.post(url)
-        self.assertEqual(response.status_code, 200)
-
-        url = ENDPOINT + '/api/v1.0/matches/1'
-        response = requests.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()['state'], models.MatchStates.phase_1)
