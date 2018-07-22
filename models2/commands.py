@@ -1,5 +1,6 @@
 import models2.events as events
-from models2 import Card, GameOverException
+import models2.effects as effects
+from models2.entities import Card, GameOverException
 
 
 class IllegalOperation(Exception):
@@ -20,6 +21,23 @@ def legal(*legal_events):
     return decorator
 
 
+def legal_for_prompted():
+    def decorator(f):
+        def wrapped_f(*args, **kwargs):
+            match = args[0]
+            last_event = match.log[-1]
+            if last_event.name != events.Prompt:
+                raise IllegalOperation('You were not prompted')
+            player_index = args[1]
+            player = match.players[player_index]
+            prompted_id = last_event.args[0]
+            if player._id != prompted_id:
+                raise IllegalOperation('You were not prompted')
+            f(*args, **kwargs)
+        return wrapped_f
+    return decorator
+
+
 @legal(events.Setup)
 def add_player_to_match(match, player, deck):
     player.deck = deck.card_ids
@@ -29,7 +47,7 @@ def add_player_to_match(match, player, deck):
 
 @legal(events.InitialDraw, events.Draw)
 def draw(match, player_id, amount):
-    player = match.get_player(player_id)
+    player = match.get_player_by_id(player_id)
     for i in range(0, amount):
         try:
             card_id = player.deck.pop()
@@ -39,7 +57,7 @@ def draw(match, player_id, amount):
         player.hand.append(card)
 
 
-@legal(events.Prompt)
+@legal_for_prompted
 def play_card(match, player_index, card_index):
     player = match.players[player_index]
     card = player.hand[card_index]
@@ -50,13 +68,14 @@ def play_card(match, player_index, card_index):
     player.board.append(card)
 
 
-@legal(events.Prompt)
+@legal_for_prompted
 def use_card(match, player_index, card_index):
     player = match.players[player_index]
     card = player.board[card_index]
     if card.activated:
         raise IllegalOperation('This card have already been used during this turn')
-
-    player.hand.pop(card_index)
-    player.resources.consume(card.cost)
-    player.board.append(card)
+    card.activated = True
+    effect_id = card.effect_id
+    if effect_id is not None:
+        events.publish(match.log, events.Use, player._id, card._id)
+        effects.apply(match, player, card, effect_id)

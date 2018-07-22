@@ -1,6 +1,5 @@
 from pymongo import MongoClient
-import models
-from bson import ObjectId
+from models2.entities import Card, Deck, Player, Match, AttrDict
 
 
 # "mongodb://admin:admin123@ds123770.mlab.com:23770/mini-magic"
@@ -46,40 +45,24 @@ def reset():
 
 def _all_docs(collection_name):
     with MongoDBConnection() as connection:
-        docs = list()
-        for doc in connection.database[collection_name].find():
-            doc['_id'] = str(doc['_id'])
-            docs.append(doc)
-        return docs
-
-
-def add_doc_beta(collection_name, doc):
-    with MongoDBConnection() as connection:
-        result = connection.database[collection_name].insert_one(doc.to_dict())
-        doc._id = result.inserted_id
-
-
-def get_doc_beta(collection_name, doc):
-    with MongoDBConnection() as connection:
-        return connection.database[collection_name].find_one({'_id': doc._id})
+        return connection.database[collection_name].find()
 
 
 def _add_doc(collection_name, doc):
     with MongoDBConnection() as connection:
-        if '_id' in doc and doc['_id'] is None:
-            doc['_id'] = ObjectId()
-        doc['_id'] = str(doc['_id'])
-        connection.database[collection_name].insert_one(doc)
+        data_dict = doc.to_dict()
+        result = connection.database[collection_name].insert_one(data_dict)
+        doc._id = result.inserted_id
 
 
-def get_doc(collection_name, doc_id):
+def _get_doc(collection_name, doc):
     with MongoDBConnection() as connection:
-        return connection.database[collection_name].find_one({'_id': str(doc_id)})
+        return connection.database[collection_name].find_one({'_id': doc._id})
 
 
 def _update_doc(collection_name, doc):
     with MongoDBConnection() as connection:
-        connection.database[collection_name].update_one({'_id': str(doc['_id'])}, {'$set': doc})
+        return connection.database[collection_name].update_one({'_id': str(doc['_id'])}, {'$set': doc})
 
 
 def update_match(match_dict):
@@ -87,56 +70,57 @@ def update_match(match_dict):
 
 
 def all_cards():
-    return _all_docs('Cards')
+    return [Card(i) for i in _all_docs('Cards')]
 
 
 def all_decks():
-    return _all_docs('Decks')
+    return [Deck(i) for i in _all_docs('Decks')]
 
 
 def all_matches():
-    return _all_docs('Matches')
+    return [Match(i) for i in _all_docs('Matches')]
 
 
 def all_players():
-    return _all_docs('Players')
+    return [Player(i) for i in _all_docs('Players')]
 
 
-def insert_card(card_dict):
-    _add_doc('Cards', card_dict)
+def insert_card(card):
+    _add_doc('Cards', card.to_dict())
 
 
-def insert_deck(deck_dict):
-    _add_doc('Decks', deck_dict)
+def insert_deck(deck):
+    _add_doc('Decks', deck.to_dict())
 
 
-def insert_match(match_dict):
-    return _add_doc('Matches', match_dict)
+def insert_match(match):
+    return _add_doc('Matches', match.to_dict())
 
 
-def insert_player(player_dict):
-    return _add_doc('Players', player_dict)
+def insert_player(player):
+    return _add_doc('Players', player.to_dict())
 
 
 def get_card(card_id):
-    return get_doc('Cards', card_id)
+    data = _get_doc('Cards', card_id)
+    return Card(data)
 
 
 def get_deck(deck_id):
-    return get_doc('Decks', deck_id)
-
-
-def get_match(match_id):
-    return get_doc('Matches', match_id)
-
-
-def get_log(match_id):
-    with MongoDBConnection() as connection:
-        match = connection.database['Matches'].find_one({'_id': str(match_id)})
-        if match is None:
-            return None
-        return AttrDict(log=match['log'])
+    data = _get_doc('Decks', deck_id)
+    return Deck(data)
 
 
 def get_player(player_id):
-    return get_doc('Players', player_id)
+    data = _get_doc('Players', player_id)
+    return Player(data)
+
+
+def get_match(match_id):
+    data = _get_doc('Matches', match_id)
+    return Match(data)
+
+
+def get_log(match_id):
+    match = get_match(match_id).log
+    return AttrDict(log=match.log)
