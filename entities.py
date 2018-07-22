@@ -1,19 +1,22 @@
-import models2.events as events
-import models2.storage as storage
+import events as events
+import storage as storage
 
 
 class AttrDict:
 
     def __init__(self, *args, **kwargs):
-        if len(args) > 0:
-            kwargs.update(dict(args[0]))
+        if len(args) > 0 and args[0] is not None:
+            data_dict = args[0]
+            if hasattr(data_dict, 'to_dict'):
+                data_dict = data_dict.to_dict()
+            kwargs.update(data_dict)
         self.__dict__.update(kwargs)
 
     def to_dict(self):
         data_dict = dict(self.__dict__)
         for key in data_dict:
             value = data_dict[key]
-            if type(value) is AttrDict:
+            if hasattr(value, 'to_dict'):
                 data_dict[key] = value.to_dict()
         return data_dict
 
@@ -40,7 +43,7 @@ class Card(AttrDict):
         self.activated = False
         self.effect_id = None
         super(Card, self).__init__(*args, **kwargs)
-        self.cost = Resources() if self.cost is None else Resources(self.cost)
+        self.cost = Resources(self.cost)
 
 
 class Deck(AttrDict):
@@ -65,8 +68,8 @@ class Player(AttrDict):
         self.hp = Player.INITIAL_HP
         self.resources = None
         super(Player, self).__init__(*args, **kwargs)
-        self.resources = Resources() if self.resources is None else Resources(self.resources)
-        self.deck = Deck() if self.deck is None else Deck(self.deck)
+        self.resources = Resources(self.resources)
+        self.deck = Deck(self.deck)
 
     def draw(self, amount):
         for i in range(0, amount):

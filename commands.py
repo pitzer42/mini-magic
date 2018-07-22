@@ -1,6 +1,6 @@
-import models2.events as events
-import models2.effects as effects
-from models2.entities import Card, GameOverException
+import events as events
+import effects as effects
+from entities import Card, GameOverException
 
 
 class IllegalOperation(Exception):
@@ -21,7 +21,7 @@ def legal(*legal_events):
     return decorator
 
 
-def legal_for_prompted():
+def legal_for_prompted(*_args):
     def decorator(f):
         def wrapped_f(*args, **kwargs):
             match = args[0]

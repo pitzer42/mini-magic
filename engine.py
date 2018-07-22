@@ -1,11 +1,12 @@
 from log_list import LogListener
-import models2.events as events
-from models2.entities import Match
+import events as events
+from entities import Match
 
 
 def connect(match):
     engine = Engine()
     engine.connect('log', match)
+
 
 class Engine(LogListener):
 

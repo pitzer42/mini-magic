@@ -1,6 +1,5 @@
 import unittest
 import json
-import models
 
 
 @unittest.skip
@@ -10,17 +9,17 @@ class TestModelInterchangeFormats(unittest.TestCase):
         expected_value = 42
         json_string = '{"_id": ' + str(expected_value) + '}'
         json_dict = json.loads(json_string)
-        model = models.match(json_dict)
+        #model = models.match(json_dict)
         self.assertEqual(expected_value, model['_id'])
 
     def test_encode_model_to_json(self):
-        model = models.match()
+        #model = models.match()
         model['_id'] = 42
         json_string = json.dumps(model)
         self.assertIn('"_id": 42', json_string)
 
     def test_encode_nested_models(self):
-        model = models.card(_id=1, name='Vanilla 1', cost=models.resources(a=1), attack=1, defense=1, tapped=False)
+        #model = models.card(_id=1, name='Vanilla 1', cost=models.resources(a=1), attack=1, defense=1, tapped=False)
         json_string = json.dumps(model)
         self.assertIn('"cost": {', json_string)
 
@@ -28,6 +27,7 @@ class TestModelInterchangeFormats(unittest.TestCase):
 @unittest.skip
 class TestResource(unittest.TestCase):
 
+    """
     def test_can_empty_a_resource(self):
         resource = models.resources(a=10)
         models.empty_resources(resource)
@@ -46,4 +46,5 @@ class TestResource(unittest.TestCase):
         cost = models.resources(a=3)
         models.consume(resource, cost)
         self.assertEqual(resource['a'], 7)
+        """
 

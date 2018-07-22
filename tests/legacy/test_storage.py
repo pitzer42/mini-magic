@@ -1,8 +1,6 @@
 import unittest
 import storage
 
-import models
-
 
 @unittest.skip
 class TestBasicStorage(unittest.TestCase):
