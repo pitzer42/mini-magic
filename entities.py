@@ -1,5 +1,4 @@
 import events as events
-import storage as storage
 
 
 class AttrDict:
@@ -18,6 +17,13 @@ class AttrDict:
             value = data_dict[key]
             if hasattr(value, 'to_dict'):
                 data_dict[key] = value.to_dict()
+            elif type(value) is list:
+                list_value = list()
+                for item in value:
+                    if hasattr(item, 'to_dict'):
+                        item = item.to_dict()
+                    list_value.append(item)
+                data_dict[key] = list_value
         return data_dict
 
 
@@ -28,12 +34,28 @@ class Resources(AttrDict):
         self.b = 0
         super(Resources, self).__init__(*args, **kwargs)
 
+    def enough(self, cost):
+        for resource_type in cost.__dict__:
+            if not hasattr(self, resource_type):
+                return False
+            want = getattr(cost, resource_type)
+            have = getattr(self, resource_type)
+            if want > have:
+                return False
+        return True
+
+    def consume(self, cost):
+        for resource_type in cost.__dict__:
+            want = getattr(cost, resource_type)
+            have = getattr(self, resource_type)
+            setattr(self, resource_type, have - want)
+
+    def empty(self):
+        for resource_type in self.__dict__:
+            setattr(self, resource_type, 0)
+
 
 class Card(AttrDict):
-
-    @classmethod
-    def get(cls, card_id):
-        return storage.get_card(card_id)
 
     def __init__(self, *args, **kwargs):
         self.name = None
@@ -42,6 +64,7 @@ class Card(AttrDict):
         self.defense = 0
         self.activated = False
         self.effect_id = None
+        self.cost = None
         super(Card, self).__init__(*args, **kwargs)
         self.cost = Resources(self.cost)
 
@@ -53,7 +76,7 @@ class Deck(AttrDict):
         super(Deck, self).__init__(*args, **kwargs)
 
     def top(self):
-        return Card.get(self.card_ids.pop())
+        return self.card_ids.pop()
 
 
 class Player(AttrDict):
@@ -61,28 +84,24 @@ class Player(AttrDict):
     INITIAL_HP = 20
 
     def __init__(self, *args, **kwargs):
+        self.hp = Player.INITIAL_HP
         self.hand = list()
         self.board = list()
-        self.deck = None
         self.discard = list()
-        self.hp = Player.INITIAL_HP
+        self.deck = None
         self.resources = None
         super(Player, self).__init__(*args, **kwargs)
         self.resources = Resources(self.resources)
         self.deck = Deck(self.deck)
-
-    def draw(self, amount):
-        for i in range(0, amount):
-            try:
-                top_card = self.deck.top()
-                self.hand.append(top_card)
-            except IndexError:
-                raise GameOverException
+        self.hand = [Card(i) for i in self.hand]
+        self.board = [Card(i) for i in self.board]
+        self.discard = [Card(i) for i in self.discard]
 
 
 class Match(AttrDict):
 
     MIN_PLAYER = 2
+    INITIAL_HAND_SIZE = 7
 
     def __init__(self, *args, **kwargs):
         self.log = [events.SETUP_EVENT]
@@ -103,7 +122,7 @@ class Match(AttrDict):
 
     def get_player_by_id(self, player_id):
         for player in self.players:
-            if player.id == player_id:
+            if player._id == player_id:
                 return player
         return None
 

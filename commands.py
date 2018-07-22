@@ -1,6 +1,8 @@
 import events as events
 import effects as effects
 from entities import Card, GameOverException
+from functools import wraps
+import storage
 
 
 class IllegalOperation(Exception):
@@ -13,7 +15,7 @@ def legal(*legal_events):
     def decorator(f):
         def wrapped_f(*args, **kwargs):
             _match = args[0]
-            last_event = _match['log'][-1]['name']
+            last_event = _match.log[-1]['name']
             if last_event not in legal_events:
                 raise IllegalOperation('This operation is not allowed during ' + last_event)
             f(*args, **kwargs)
@@ -21,26 +23,27 @@ def legal(*legal_events):
     return decorator
 
 
-def legal_for_prompted(*_args):
-    def decorator(f):
-        def wrapped_f(*args, **kwargs):
-            match = args[0]
-            last_event = match.log[-1]
-            if last_event.name != events.Prompt:
-                raise IllegalOperation('You were not prompted')
-            player_index = args[1]
-            player = match.players[player_index]
-            prompted_id = last_event.args[0]
-            if player._id != prompted_id:
-                raise IllegalOperation('You were not prompted')
-            f(*args, **kwargs)
-        return wrapped_f
-    return decorator
+def legal_for_prompted(f):
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        match = args[0]
+        last_event = match.log[-1]
+        if last_event['name'] != events.Prompt:
+            raise IllegalOperation('You were not prompted')
+        player_index = args[1]
+        player_id = match.players[player_index]._id
+        prompted_id = last_event['args'][0]
+        if player_id != prompted_id:
+            raise IllegalOperation('You were not prompted')
+        return f(*args, **kwargs)
+    return wrapped
 
 
 @legal(events.Setup)
 def add_player_to_match(match, player, deck):
-    player.deck = deck.card_ids
+    player.deck = deck
+    if match.get_player_by_id(player._id) is not None:
+        raise IllegalOperation('This player have already joined to this match')
     match.players.append(player)
     events.publish(match.log, events.PlayerJoin, player._id)
 
@@ -50,10 +53,10 @@ def draw(match, player_id, amount):
     player = match.get_player_by_id(player_id)
     for i in range(0, amount):
         try:
-            card_id = player.deck.pop()
+            card_id = player.deck.card_ids.pop()
         except IndexError:
             raise GameOverException()
-        card = Card.get(card_id)
+        card = Card(storage.get_card(card_id))
         player.hand.append(card)
 
 

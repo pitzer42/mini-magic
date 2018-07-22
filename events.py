@@ -15,6 +15,6 @@ Use = 'use'
 Activate = 'activate'
 Yield = 'yield'
 
-SETUP_EVENT = dict(seq=0, name=Setup)
+SETUP_EVENT = dict(seq=0, name=Setup, args=list())
 
 publish = log_list.publish

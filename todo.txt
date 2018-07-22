@@ -1,7 +1,5 @@
 event log
-    create a list in match object to store all the events that have occurred, so clients can keep track of what
-    changed since the checkpoint.
-    match['log'] # ['end_turn:player_id', 'begin_turn:player_id', 'reset', 'draw', 'activate:card_id', ...]
+    clients can keep track of what changed since the checkpoint.
 
 define a subset of rules
     limit targets for effects

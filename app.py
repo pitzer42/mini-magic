@@ -1,9 +1,10 @@
 from flask import Flask, jsonify, abort, request, Response
 import storage as storage
-from entities import Match
+from entities import Deck, Player, Match
 import commands as commands
 from commands import IllegalOperation
 from functools import wraps
+import engine
 
 app = Flask(__name__)
 
@@ -92,43 +93,44 @@ def get_log(match_id):
 
 @app.route('/matches', methods=['POST'])
 def create_match():
-    match = Match()
-    storage.add(match)
+    match = storage.add_match(Match())
     return jsonify(match), 201
 
 
 @app.route('/matches/<string:match_id>', methods=['POST'])
 def create_match_with_id(match_id):
-    match = Match(match_id)
+    match = Match(_id=match_id)
     try:
         storage.add_match(match)
     except Exception:
-        return Response(409)
+        abort(409)
     return jsonify(match), 201
 
 
 @app.route('/matches/<string:match_id>/join', methods=['POST'])
 @inject_json_fields('player_id', 'deck_id')
 def join(match_id, player_id, deck_id):
-    match = get_or_404(storage.get_match, match_id)
-    player = get_or_404(storage.get_player, player_id)
-    deck = get_or_404(storage.get_player, deck_id)
+    match = Match(get_or_404(storage.get_match, match_id))
+    player = Player(get_or_404(storage.get_player, player_id))
+    deck = Deck(get_or_404(storage.get_deck, deck_id))
     try:
-        match.join(player, deck)
+        engine.connect(match)
+        commands.add_player_to_match(match, player, deck)
     except IllegalOperation as e:
         message = str(e)
         print(message)
         abort(400, description=message)
-    storage.update_match(match)
-    return jsonify(match.to_dict())
+    match_data = storage.update_match(match)
+    return jsonify(match_data)
 
 
 @app.route('/matches/<string:match_id>/players/<int:player_index>/play/<int:card_index>', methods=['POST'])
 def play(match_id, player_index, card_index):
     player_index -= 1
     card_index -= 1
-    match = get_or_404(storage.get_match, match_id)
+    match = Match(get_or_404(storage.get_match, match_id))
     try:
+        engine.connect(match)
         commands.play_card(match, player_index, card_index)
     except IndexError as error:
         error_message = str(error)
@@ -148,6 +150,7 @@ def use(match_id, player_index, card_index):
     card_index -= 1
     match = get_or_404(storage.get_match, match_id)
     try:
+        engine.connect(match)
         commands.use_card(match, player_index, card_index)
     except IndexError as error:
         error_message = str(error)
@@ -166,6 +169,7 @@ def yield_play(match_id, player_index):
     player_index -= 1
     match = get_or_404(storage.get_match, match_id)
     try:
+        engine.connect(match)
         commands.yield_play(match, player_index)
     except IndexError as error:
         error_message = str(error)

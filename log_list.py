@@ -46,11 +46,12 @@ class LogListener:
         """
         if self.log is not None:
             self.log.remove_listener(self)
-        log = LogList(context[log_ref])
-        log.add_listener(self)
-        context[log_ref] = log
-        self.log = log
         self.context = context
+        if hasattr(context, log_ref):
+            context = context.__dict__
+        self.log = LogList(context[log_ref])
+        self.log.add_listener(self)
+        context[log_ref] = self.log
 
     def publish(self, name, *args):
         publish(self.log, name, *args)

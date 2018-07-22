@@ -1,5 +1,6 @@
 from pymongo import MongoClient
 from entities import Card, Deck, Player, Match, Resources, AttrDict
+from bson import ObjectId
 
 
 # mongodb://admin:admin123@ds123770.mlab.com:23770/mini-magic
@@ -61,23 +62,28 @@ def _add_doc(collection_name, doc):
     with MongoDBConnection() as connection:
         data_dict = doc.to_dict()
         if '_id' in data_dict:
-            data_dict['_id'] = str(data_dict['_id'])
-        result = connection.database[collection_name].insert_one(data_dict)
-        doc._id = result.inserted_id
+            data_dict['_id'] = doc._id = str(doc._id)
+        else:
+            data_dict['_id'] = doc._id = str(ObjectId())
+        connection.database[collection_name].insert_one(data_dict)
+        return data_dict
 
 
 def _get_doc(collection_name, doc_id):
     with MongoDBConnection() as connection:
+        doc_id = str(doc_id)
         return connection.database[collection_name].find_one({'_id': doc_id})
 
 
 def _update_doc(collection_name, doc):
     with MongoDBConnection() as connection:
-        return connection.database[collection_name].update_one({'_id': str(doc['_id'])}, {'$set': doc})
+        data_dict = doc.to_dict()
+        connection.database[collection_name].update_one({'_id': str(doc._id)}, {'$set': data_dict})
+        return data_dict
 
 
 def update_match(match_dict):
-    _update_doc('Matches', match_dict)
+    return _update_doc('Matches', match_dict)
 
 
 def all_cards():
@@ -129,4 +135,6 @@ def get_match(match_id):
 
 
 def get_log(match_id):
-    return dict(log=get_match(match_id)['log'])
+    match = get_match(match_id)
+    log = match['log']
+    return dict(log=log)

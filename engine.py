@@ -1,6 +1,7 @@
 from log_list import LogListener
 import events as events
 from entities import Match
+import commands
 
 
 def connect(match):
@@ -10,7 +11,7 @@ def connect(match):
 
 class Engine(LogListener):
 
-    def on_player_join(self):
+    def on_player_join(self, player_id):
         if self.context.has_enough_players():
             self.publish(events.Ready)
         else:
@@ -23,17 +24,16 @@ class Engine(LogListener):
 
     def on_initial_draw(self):
         for player in self.context.players:
-            player.draw(Match.INITIAL_HAND_SIZE)
+            commands.draw(self.context, player._id, Match.INITIAL_HAND_SIZE)
 
     def on_refresh(self):
         player = self.context.current_player()
         for card in player.board:
             card.activated = False
         self.publish(events.Draw, player._id)
+        self.publish(events.Prompt, player._id)
 
     def on_draw(self, player_id):
-        player = self.context.get_player_by_id(player_id)
-        player.draw(1)
-        self.publish(events.Prompt, player_id)
+        commands.draw(self.context, player_id, 1)
 
 
