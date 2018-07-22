@@ -1,7 +1,8 @@
 import events as events
+import storage as storage
 
 
-class AttrDict:
+class ValueObject:
 
     def __init__(self, *args, **kwargs):
         if len(args) > 0 and args[0] is not None:
@@ -27,7 +28,7 @@ class AttrDict:
         return data_dict
 
 
-class Resources(AttrDict):
+class Resources(ValueObject):
 
     def __init__(self, *args, **kwargs):
         self.a = 0
@@ -55,7 +56,27 @@ class Resources(AttrDict):
             setattr(self, resource_type, 0)
 
 
-class Card(AttrDict):
+class Entity(ValueObject):
+
+    def __init__(self, *args, **kwargs):
+        self._id = None
+        super(Entity, self).__init__(*args, **kwargs)
+
+    @classmethod
+    def all(cls):
+        return [cls(i) for i in storage.all_docs(cls.STORAGE_NAME)]
+
+    @classmethod
+    def get(cls, item_id):
+        return cls(storage.get_doc(cls.STORAGE_NAME, item_id))
+
+    def save(self):
+        self._id = storage.save_doc(self.__class__.STORAGE_NAME, self.to_dict())
+
+
+class Card(Entity):
+
+    STORAGE_NAME = 'Cards'
 
     def __init__(self, *args, **kwargs):
         self.name = None
@@ -69,17 +90,22 @@ class Card(AttrDict):
         self.cost = Resources(self.cost)
 
 
-class Deck(AttrDict):
+class Deck(Entity):
+
+    STORAGE_NAME = 'Decks'
 
     def __init__(self, *args, **kwargs):
         self.card_ids = list()
         super(Deck, self).__init__(*args, **kwargs)
 
     def top(self):
-        return self.card_ids.pop()
+        card_id = self.card_ids.pop()
+        return Card.get(card_id)
 
 
-class Player(AttrDict):
+class Player(Entity):
+
+    STORAGE_NAME = 'Players'
 
     INITIAL_HP = 20
 
@@ -98,7 +124,9 @@ class Player(AttrDict):
         self.discard = [Card(i) for i in self.discard]
 
 
-class Match(AttrDict):
+class Match(Entity):
+
+    STORAGE_NAME = 'Matches'
 
     MIN_PLAYER = 2
     INITIAL_HAND_SIZE = 7
@@ -116,6 +144,10 @@ class Match(AttrDict):
 
     def current_player(self):
         return self.players[self.current_player_index]
+
+    def other_player(self):
+        other_player_index = 1 - self.current_player_index
+        return self.players[other_player_index]
 
     def has_enough_players(self):
         return len(self.players) >= Match.MIN_PLAYER

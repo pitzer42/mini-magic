@@ -8,9 +8,6 @@ class TestDataAPI(APITestCase):
     def setUpClass(cls):
         scenarios.one_of_each_entity()
 
-    def test_get_index(self):
-        self.assertGet200('/')
-
     def test_get_all_cards_as_json(self):
         response = self.assertGet200('/cards')
         self.assertJson(response)

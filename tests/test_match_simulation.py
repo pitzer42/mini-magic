@@ -29,7 +29,8 @@ class TestHappyPath(APITestCase):
 
     def post_player_1_setup(self, match_id):
         request_data = {'player_id': 1, 'deck_id': 1}
-        response = self.assertPost200('/matches/'+match_id+'/join', json=request_data)
+        self.assertPost200('/matches/'+match_id+'/join', json=request_data)
+        response = self.assertGet200('/matches/'+match_id)
         self.assertJson(response, 'players')
         match = Match(response.json())
         players_in_the_match = len(match.players)
@@ -39,7 +40,8 @@ class TestHappyPath(APITestCase):
 
     def post_player_2_prompt(self, match_id):
         request_data = {'player_id': 2, 'deck_id': 1}
-        response = self.assertPost200('/matches/'+match_id+'/join', json=request_data)
+        self.assertPost200('/matches/'+match_id+'/join', json=request_data)
+        response = self.assertGet200('/matches/' + match_id)
         self.assertJson(response, 'players')
         match = Match(response.json())
         players_in_the_match = len(match.players)

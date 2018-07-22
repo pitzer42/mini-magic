@@ -1,8 +1,7 @@
-import events as events
-import effects as effects
-from entities import Card, GameOverException
+import events
+import effects
 from functools import wraps
-import storage
+from entities import Deck, Player, Match, GameOverException
 
 
 class IllegalOperation(Exception):
@@ -14,10 +13,10 @@ class IllegalOperation(Exception):
 def legal(*legal_events):
     def decorator(f):
         def wrapped_f(*args, **kwargs):
-            _match = args[0]
-            last_event = _match.log[-1]['name']
-            if last_event not in legal_events:
-                raise IllegalOperation('This operation is not allowed during ' + last_event)
+            match = Match.get(args[0])
+            last_event_name = match.log[-1]['name']
+            if last_event_name not in legal_events:
+                raise IllegalOperation('This operation is not allowed during ' + last_event_name)
             f(*args, **kwargs)
         return wrapped_f
     return decorator
@@ -26,7 +25,7 @@ def legal(*legal_events):
 def legal_for_prompted(f):
     @wraps(f)
     def wrapped(*args, **kwargs):
-        match = args[0]
+        match = Match.get(args[0])
         last_event = match.log[-1]
         if last_event['name'] != events.Prompt:
             raise IllegalOperation('You were not prompted')
@@ -39,46 +38,92 @@ def legal_for_prompted(f):
     return wrapped
 
 
-@legal(events.Setup)
-def add_player_to_match(match, player, deck):
-    player.deck = deck
-    if match.get_player_by_id(player._id) is not None:
-        raise IllegalOperation('This player have already joined to this match')
-    match.players.append(player)
-    events.publish(match.log, events.PlayerJoin, player._id)
-
-
-@legal(events.InitialDraw, events.Draw)
-def draw(match, player_id, amount):
-    player = match.get_player_by_id(player_id)
-    for i in range(0, amount):
+def expect_game_over(f):
+    @wraps(f)
+    def wrapped(*args, **kwargs):
         try:
-            card_id = player.deck.card_ids.pop()
-        except IndexError:
-            raise GameOverException()
-        card = Card(storage.get_card(card_id))
-        player.hand.append(card)
+            return f(*args, **kwargs)
+        except GameOverException as e:
+            log = Match.get(args[0]).log
+            events.publish(log, events.GameOver, e.winner)
+    return wrapped
+
+
+@legal(events.Setup)
+@expect_game_over
+def join(match_id, player_id, deck_id):
+    match = Match.get(match_id)
+    if match is None:
+        raise IllegalOperation('Match ' + match_id + ' not found')
+    if match.get_player_by_id(player_id):
+        raise IllegalOperation('This player have already joined to this match')
+    player = Player.get(player_id)
+    if player is None:
+        raise IllegalOperation('Player ' + player_id + ' not found')
+    deck = Deck.get(deck_id)
+    if deck is None:
+        raise IllegalOperation('Deck ' + deck_id + ' not found')
+    events.publish(match.log, events.PlayerJoin, player_id)
+    player.deck = deck
+    match.players.append(player)
+    if match.has_enough_players():
+        events.publish(match.log, events.Ready)
+        for p in match.players:
+            events.publish(match.log, events.InitialDraw, p._id)
+            for i in range(0,Match.INITIAL_HAND_SIZE):
+                card = p.deck.top()
+                p.hand.append(card)
+        current_player = match.current_player()
+        events.publish(match.log, events.TurnBegin, current_player._id)
+        events.publish(match.log, events.Refresh, current_player._id)
+        for card in current_player.board:
+            card.activated = False
+        events.publish(match.log, events.Draw, current_player._id)
+        card = current_player.deck.top()
+        current_player.hand.append(card)
+        events.publish(match.log, events.Prompt, current_player._id)
+    else:
+        events.publish(match.log, events.Setup)
+    match.save()
 
 
 @legal_for_prompted
-def play_card(match, player_index, card_index):
+def play_card(match_id, player_index, card_index):
+    match = Match.get(match_id)
+    if match is None:
+        raise IllegalOperation('Match ' + match_id + ' not found')
+    if player_index < 0 or player_index >= len(match.players):
+        raise IllegalOperation('Player at ' + player_index + ' not found')
     player = match.players[player_index]
+    if card_index < 0 or card_index >= len(player.hand):
+        raise IllegalOperation('Card at ' + card_index + ' not found')
     card = player.hand[card_index]
     if not player.resources.enough(card.cost):
-        raise IllegalOperation('Player does not have enough resources to play this card')
+        raise IllegalOperation('Player does not have enough resources to play ' + card._id)
+    events.publish(match.log, events.Play, player._id, card._id)
     player.hand.pop(card_index)
     player.resources.consume(card.cost)
     player.board.append(card)
+    events.publish(match.log, events.Prompt, match.other_player()._id)
+    match.save()
 
 
 @legal_for_prompted
-def use_card(match, player_index, card_index):
+@expect_game_over
+def use_card(match_id, player_index, card_index):
+    match = Match.get(match_id)
+    if match is None:
+        raise IllegalOperation('Match ' + match_id + ' not found')
+    if player_index < 0 or player_index >= len(match.players):
+        raise IllegalOperation('Player at ' + player_index + ' not found')
     player = match.players[player_index]
+    if card_index < 0 or card_index >= len(player.board):
+        raise IllegalOperation('Card at ' + card_index + ' not found')
     card = player.board[card_index]
     if card.activated:
-        raise IllegalOperation('This card have already been used during this turn')
+        raise IllegalOperation('This card was already been during this turn')
+    events.publish(match.log, events.Use, player._id, card._id)
     card.activated = True
-    effect_id = card.effect_id
-    if effect_id is not None:
-        events.publish(match.log, events.Use, player._id, card._id)
-        effects.apply(match, player, card, effect_id)
+    if card.effect_id:
+        effects.apply(match, player, card, card.effect_id)
+    match.save()

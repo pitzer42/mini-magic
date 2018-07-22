@@ -1,5 +1,3 @@
-import log_list
-
 Setup = 'setup'
 PlayerJoin = 'player_join'
 Ready = 'ready'
@@ -17,4 +15,8 @@ Yield = 'yield'
 
 SETUP_EVENT = dict(seq=0, name=Setup, args=list())
 
-publish = log_list.publish
+
+def publish(log, name, *args):
+    seq = len(log)
+    event = dict(seq=seq, name=name, args=args)
+    log.append(event)
