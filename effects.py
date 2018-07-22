@@ -7,15 +7,13 @@ def apply(match, owner, card, effect_id):
 
 
 def add_a(match, owner, card):
-    owner['resources']['a'] += 1
+    owner.resources.a += 1
 
 
 def add_b(match, owner, card):
-    owner['resources']['b'] += 1
+    owner.resources.b += 1
 
 
 def one_damage(match, owner, card):
-    for player in match['players']:
-        if player['_id'] != owner['_id']:
-            player['health_points'] -= 1
-            return
+    target = match.next_player(current=owner)
+    target.hp -= 1

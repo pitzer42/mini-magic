@@ -23,6 +23,7 @@ app.add_url_rule('/matches/<string:match_id>/join', view_func=game_api.join, met
 app.add_url_rule('/matches/<string:match_id>/players/<int:player_index>/play/<int:card_index>', view_func=game_api.play, methods=['POST'])
 app.add_url_rule('/matches/<string:match_id>/players/<int:player_index>/use/<int:card_index>', view_func=game_api.use, methods=['POST'])
 app.add_url_rule('/matches/<string:match_id>/players/<int:player_index>/yield', view_func=game_api.yield_play, methods=['POST'])
+app.add_url_rule('/matches/<string:match_id>/players/<int:player_index>/end_turn', view_func=game_api.end_turn, methods=['POST'])
 
 
 if __name__ == '__main__':

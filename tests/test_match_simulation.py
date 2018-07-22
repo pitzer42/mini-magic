@@ -1,6 +1,6 @@
 import tests.scenarios as scenarios
 from tests.api_test_case import APITestCase
-from entities import Match
+from entities import Match, Player
 import events
 
 
@@ -50,16 +50,55 @@ class TestHappyPath(APITestCase):
         self.assertEqual(last_event, events.Prompt)
 
     def play_turn(self, match_id):
-        self.assertPost200('/matches/'+match_id+'/players/1/play/1')
-        response = self.assertGet200('/matches/'+match_id)
+        self.post_play_card(match_id)
+        self.post_use_card_to_get_resources(match_id)
+        self.post_use_resources_to_play_a_card(match_id)
+        self.post_use_card_to_deal_damage(match_id)
+        self.post_end_turn(match_id)
+
+    def post_play_card(self, match_id):
+        self.assertPost200('/matches/' + match_id + '/players/1/play/1')
+        response = self.assertGet200('/matches/' + match_id)
         self.assertJson(response, 'players')
         match = Match(response.json())
-        cards_in_the_board = len(match.players[0].board)
+        cards_in_the_board = len(match.current_player().board)
         self.assertEqual(cards_in_the_board, 1)
         cards_in_hand = len(match.players[0].hand)
         self.assertEqual(cards_in_hand, Match.INITIAL_HAND_SIZE)
+        self.assertPost200('/matches/' + match_id + '/players/2/yield')
 
+    def post_use_card_to_get_resources(self, match_id):
+        self.assertPost200('/matches/' + match_id + '/players/1/use/1')
+        response = self.assertGet200('/matches/' + match_id)
+        self.assertJson(response, 'players')
+        match = Match(response.json())
+        resources = match.current_player().resources
+        self.assertGreater(resources.a, 0)
+        self.assertPost200('/matches/' + match_id + '/players/2/yield')
 
+    def post_use_resources_to_play_a_card(self, match_id):
+        self.assertPost200('/matches/' + match_id + '/players/1/play/1')
+        response = self.assertGet200('/matches/' + match_id)
+        self.assertJson(response, 'players')
+        match = Match(response.json())
+        resources = match.current_player().resources
+        self.assertEqual(resources.a, 0)
+        board = match.players[0].board
+        self.assertEqual(len(board), 2)
+        self.assertPost200('/matches/' + match_id + '/players/2/yield')
 
+    def post_use_card_to_deal_damage(self, match_id):
+        self.assertPost200('/matches/' + match_id + '/players/1/use/2')
+        response = self.assertGet200('/matches/' + match_id)
+        self.assertJson(response, 'players')
+        match = Match(response.json())
+        enemy = match.players[1]
+        self.assertLess(enemy.hp, Player.INITIAL_HP)
+        self.assertPost200('/matches/' + match_id + '/players/2/yield')
 
-
+    def post_end_turn(self, match_id):
+        self.assertPost200('/matches/' + match_id + '/players/1/end_turn')
+        response = self.assertGet200('/matches/' + match_id)
+        self.assertJson(response, 'players')
+        match = Match(response.json())
+        self.assertEqual(match.current_player_index, 1)

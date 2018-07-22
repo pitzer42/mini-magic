@@ -60,3 +60,18 @@ def yield_play(match_id, player_index):
         print(error_message)
         abort(400, description=error_message)
     return Response(status=200)
+
+
+def end_turn(match_id, player_index):
+    player_index -= 1
+    try:
+        commands.end_turn(match_id, player_index)
+    except IndexError as error:
+        error_message = str(error)
+        print(error_message)
+        abort(404, description=error_message)
+    except IllegalOperation as error:
+        error_message = str(error)
+        print(error_message)
+        abort(400, description=error_message)
+    return Response(status=200)

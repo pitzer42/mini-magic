@@ -145,9 +145,10 @@ class Match(Entity):
     def current_player(self):
         return self.players[self.current_player_index]
 
-    def other_player(self):
-        other_player_index = 1 - self.current_player_index
-        return self.players[other_player_index]
+    def next_player(self, current=None):
+        if current is None or current._id == self.current_player()._id:
+            return self.players[1 - self.current_player_index]
+        return self.current_player()
 
     def has_enough_players(self):
         return len(self.players) >= Match.MIN_PLAYER
@@ -157,11 +158,6 @@ class Match(Entity):
             if player._id == player_id:
                 return player
         return None
-
-    def join(self, player, deck):
-        player.deck = deck
-        self.players.append(player)
-        events.publish(self.log, events.PlayerJoin, player._id)
 
 
 class GameOverException(Exception):

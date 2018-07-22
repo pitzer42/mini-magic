@@ -75,6 +75,7 @@ def join(match_id, player_id, deck_id):
                 p.hand.append(card)
         current_player = match.current_player()
         events.publish(match.log, events.TurnBegin, current_player._id)
+
         events.publish(match.log, events.Refresh, current_player._id)
         for card in current_player.board:
             card.activated = False
@@ -82,6 +83,7 @@ def join(match_id, player_id, deck_id):
         card = current_player.deck.top()
         current_player.hand.append(card)
         events.publish(match.log, events.Prompt, current_player._id)
+
     else:
         events.publish(match.log, events.Setup)
     match.save()
@@ -104,7 +106,7 @@ def play_card(match_id, player_index, card_index):
     player.hand.pop(card_index)
     player.resources.consume(card.cost)
     player.board.append(card)
-    events.publish(match.log, events.Prompt, match.other_player()._id)
+    events.publish(match.log, events.Prompt, match.next_player()._id)
     match.save()
 
 
@@ -115,10 +117,10 @@ def use_card(match_id, player_index, card_index):
     if match is None:
         raise IllegalOperation('Match ' + match_id + ' not found')
     if player_index < 0 or player_index >= len(match.players):
-        raise IllegalOperation('Player at ' + player_index + ' not found')
+        raise IllegalOperation('Player at ' + str(player_index) + ' not found')
     player = match.players[player_index]
     if card_index < 0 or card_index >= len(player.board):
-        raise IllegalOperation('Card at ' + card_index + ' not found')
+        raise IllegalOperation('Card at ' + str(card_index) + ' not found')
     card = player.board[card_index]
     if card.activated:
         raise IllegalOperation('This card was already been during this turn')
@@ -126,4 +128,50 @@ def use_card(match_id, player_index, card_index):
     card.activated = True
     if card.effect_id:
         effects.apply(match, player, card, card.effect_id)
+    events.publish(match.log, events.Prompt, match.next_player(current=player)._id)
     match.save()
+
+
+@legal_for_prompted
+def yield_play(match_id, player_index):
+    match = Match.get(match_id)
+    if match is None:
+        raise IllegalOperation('Match ' + match_id + ' not found')
+    if player_index < 0 or player_index >= len(match.players):
+        raise IllegalOperation('Player at ' + player_index + ' not found')
+    player = match.players[player_index]
+    events.publish(match.log, events.Yield, player._id)
+    next_player = match.next_player(current=player)
+    events.publish(match.log, events.Prompt, next_player._id)
+    match.save()
+
+
+@legal_for_prompted
+def end_turn(match_id, player_index):
+    match = Match.get(match_id)
+    if match is None:
+        raise IllegalOperation('Match ' + match_id + ' not found')
+    if player_index < 0 or player_index >= len(match.players):
+        raise IllegalOperation('Player at ' + player_index + ' not found')
+    player = match.players[player_index]
+    events.publish(match.log, events.TurnEnd, player._id)
+    player.resources.empty()
+    if match.current_player_index + 1 == len(match.players):
+        match.current_player_index = 0
+    else:
+        match.current_player_index += 1
+    begin_turn(match, match.current_player())
+    match.save()
+
+
+def begin_turn(match, current_player):
+    events.publish(match.log, events.TurnBegin, current_player._id)
+    events.publish(match.log, events.Refresh, current_player._id)
+    for card in current_player.board:
+        card.activated = False
+    events.publish(match.log, events.Draw, current_player._id)
+    card = current_player.deck.top()
+    current_player.hand.append(card)
+    events.publish(match.log, events.Prompt, current_player._id)
+
+
