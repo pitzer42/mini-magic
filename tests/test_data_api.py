@@ -1,56 +1,44 @@
-import unittest
-import requests
-import storage
-import models
-
-ENDPOINT = 'http://127.0.0.1:5000'
+import tests.scenarios as scenarios
+from tests.api_test_case import APITestCase
 
 
-@unittest.skip
-class DataAPI(unittest.TestCase):
+class TestDataAPI(APITestCase):
 
     @classmethod
     def setUpClass(cls):
-        storage.reset()
+        scenarios.one_of_each_entity()
 
     def test_get_index(self):
-        response = requests.get(ENDPOINT)
-        self.assertEqual(response.status_code, 200)
+        self.assertGet200('/')
 
-    def test_get_cards_as_json(self):
-        url = ENDPOINT + '/api/v1.0/cards'
-        response = requests.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertIsNotNone(response.json())
+    def test_get_all_cards_as_json(self):
+        response = self.assertGet200('/cards')
+        self.assertJson(response)
+
+    def test_get_all_decks_as_json(self):
+        response = self.assertGet200('/decks')
+        self.assertJson(response)
+
+    def test_get_all_players_as_json(self):
+        response = self.assertGet200('/players')
+        self.assertJson(response)
+
+    def test_get_all_matches_as_json(self):
+        response = self.assertGet200('/matches')
+        self.assertJson(response)
 
     def test_get_card_by_id(self):
-        url = ENDPOINT + '/api/v1.0/cards/1'
-        response = requests.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('name', response.json())
-        self.assertIn('cost', response.json())
-
-    def test_get_decks_as_json(self):
-        url = ENDPOINT + '/api/v1.0/decks'
-        response = requests.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertIsNotNone(response.json())
+        response = self.assertGet200('/cards/1')
+        self.assertJson(response, '_id', 'name', 'cost')
 
     def test_get_deck_by_id(self):
-        url = ENDPOINT + '/api/v1.0/decks/1'
-        response = requests.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('card_ids', response.json())
-
-    def test_get_matches_as_json(self):
-        url = ENDPOINT + '/api/v1.0/matches'
-        response = requests.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertIsNotNone(response.json())
+        response = self.assertGet200('/decks/1')
+        self.assertJson(response, '_id', 'card_ids')
 
     def test_get_match_by_id(self):
-        url = ENDPOINT + '/api/v1.0/matches/1'
-        response = requests.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('_id', response.json())
-        self.assertIn('state', response.json())
+        response = self.assertGet200('/matches/1')
+        self.assertJson(response, '_id', 'log')
+
+    def test_get_log_by_match_id(self):
+        response = self.assertGet200('/matches/1/log')
+        self.assertJson(response, 'log')

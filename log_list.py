@@ -30,11 +30,12 @@ class LogListener:
 
     """
     Can be connected to a list in a object. Every time a new event is appended to the list, a method in this object
-    will be called. The method triggered by the item append should follow the naming convention "_on_" + event.name
+    will be called. The method triggered by the item append should follow the naming convention "on_" + event.name
     """
 
     def __init__(self):
         self.log = None
+        self.context = None
 
     def connect(self, log_ref, context):
         """
@@ -45,16 +46,18 @@ class LogListener:
         """
         if self.log is not None:
             self.log.remove_listener(self)
-        log = LogList(context[log_ref])
-        log.add_listener(self)
-        context[log_ref] = log
-        self.log = log
+        self.context = context
+        if hasattr(context, log_ref):
+            context = context.__dict__
+        self.log = LogList(context[log_ref])
+        self.log.add_listener(self)
+        context[log_ref] = self.log
 
     def publish(self, name, *args):
         publish(self.log, name, *args)
 
     def _on_log_change(self, event):
-        handler_name = '_on_' + event['name']
+        handler_name = 'on_' + event['name']
         if hasattr(self, handler_name):
             handle_event = getattr(self, handler_name)
             handle_event(*event['args'])
