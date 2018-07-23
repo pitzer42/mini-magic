@@ -173,5 +173,3 @@ def begin_turn(match, current_player):
     card = current_player.deck.top()
     current_player.hand.append(card)
     events.publish(match.log, events.Prompt, current_player._id)
-
-
