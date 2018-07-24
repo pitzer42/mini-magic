@@ -1,5 +1,5 @@
-import commands
-from commands import IllegalOperation
+import actions
+from actions import IllegalOperation
 from app.validations import inject_json_fields
 from flask import abort, Response
 
@@ -7,7 +7,7 @@ from flask import abort, Response
 @inject_json_fields('player_id', 'deck_id')
 def join(match_id, player_id, deck_id):
     try:
-        commands.join(match_id, player_id, deck_id)
+        actions.join(match_id, player_id, deck_id)
     except IllegalOperation as e:
         message = str(e)
         print(message)
@@ -19,7 +19,7 @@ def play(match_id, player_index, card_index):
     player_index -= 1
     card_index -= 1
     try:
-        commands.play_card(match_id, player_index, card_index)
+        actions.play_card(match_id, player_index, card_index)
     except IndexError as error:
         error_message = str(error)
         print(error_message)
@@ -35,7 +35,7 @@ def use(match_id, player_index, card_index):
     player_index -= 1
     card_index -= 1
     try:
-        commands.use_card(match_id, player_index, card_index)
+        actions.use_card(match_id, player_index, card_index)
     except IndexError as error:
         error_message = str(error)
         print(error_message)
@@ -50,7 +50,7 @@ def use(match_id, player_index, card_index):
 def yield_play(match_id, player_index):
     player_index -= 1
     try:
-        commands.yield_play(match_id, player_index)
+        actions.yield_play(match_id, player_index)
     except IndexError as error:
         error_message = str(error)
         print(error_message)
@@ -65,7 +65,7 @@ def yield_play(match_id, player_index):
 def end_turn(match_id, player_index):
     player_index -= 1
     try:
-        commands.end_turn(match_id, player_index)
+        actions.end_turn(match_id, player_index)
     except IndexError as error:
         error_message = str(error)
         print(error_message)
