@@ -141,6 +141,7 @@ class Match(Entity):
 
     def __init__(self, *args, **kwargs):
         self.log = [events.SETUP_EVENT]
+        self.stack = list()
         self.players = list()
         self.current_player_index = 0
         super(Match, self).__init__(*args, **kwargs)
@@ -166,6 +167,15 @@ class Match(Entity):
             if player.id == player_id:
                 return player
         return None
+
+    @property
+    def last_event(self):
+        return self.log[-1]
+
+    def publish(self, name, *args):
+        seq = len(self.log)
+        event = dict(seq=seq, name=name, args=args)
+        self.log.append(event)
 
 
 class GameOverException(Exception):
