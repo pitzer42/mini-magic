@@ -71,7 +71,15 @@ class Entity(ValueObject):
         return cls(storage.get_doc(cls.STORAGE_NAME, item_id))
 
     def save(self):
-        self._id = storage.save_doc(self.__class__.STORAGE_NAME, self.to_dict())
+        self.id = storage.save_doc(self.__class__.STORAGE_NAME, self.to_dict())
+
+    @property
+    def id(self):
+        return self._id
+
+    @id.setter
+    def id(self, value):
+        self._id = str(value)
 
 
 class Card(Entity):
@@ -146,7 +154,7 @@ class Match(Entity):
         return self.players[self.current_player_index]
 
     def next_player(self, current=None):
-        if current is None or current._id == self.current_player()._id:
+        if current is None or current.id == self.current_player().id:
             return self.players[1 - self.current_player_index]
         return self.current_player()
 
@@ -155,7 +163,7 @@ class Match(Entity):
 
     def get_player_by_id(self, player_id):
         for player in self.players:
-            if player._id == player_id:
+            if player.id == player_id:
                 return player
         return None
 
