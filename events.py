@@ -12,6 +12,7 @@ Play = 'play'
 Use = 'use'
 Activate = 'activate'
 Yield = 'yield'
+Solve = 'solve'
 
 SETUP_EVENT = dict(seq=0, name=Setup, args=list())
 

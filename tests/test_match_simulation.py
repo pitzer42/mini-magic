@@ -69,6 +69,8 @@ class TestHappyPath(APITestCase):
 
     def post_use_card_to_get_resources(self, match_id):
         self.assertPost200('/matches/' + match_id + '/players/1/use/1')
+        self.assertPost200('/matches/' + match_id + '/players/2/yield')
+        self.assertPost200('/matches/' + match_id + '/players/1/yield')
         response = self.assertGet200('/matches/' + match_id)
         self.assertJson(response, 'players')
         match = Match(response.json())
@@ -89,6 +91,8 @@ class TestHappyPath(APITestCase):
 
     def post_use_card_to_deal_damage(self, match_id):
         self.assertPost200('/matches/' + match_id + '/players/1/use/2')
+        self.assertPost200('/matches/' + match_id + '/players/2/yield')
+        self.assertPost200('/matches/' + match_id + '/players/1/yield')
         response = self.assertGet200('/matches/' + match_id)
         self.assertJson(response, 'players')
         match = Match(response.json())

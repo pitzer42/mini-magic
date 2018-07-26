@@ -1,9 +1,5 @@
-def apply(match, owner, card, effect_id):
-    {
-        'add_a': add_a,
-        'add_b': add_b,
-        '1_damage': one_damage
-    }[effect_id](match, owner, card)
+def apply(match, owner, card):
+    globals()[card.effect_id](match, owner, card)
 
 
 def add_a(match, owner, card):

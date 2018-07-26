@@ -12,7 +12,7 @@ def one_of_each_entity():
 
 def two_players():
     drop_all()
-    Card(_id='1', name='Bolt', cost=Resources(a=1), effect_id='1_damage').save()
+    Card(_id='1', name='Bolt', cost=Resources(a=1), effect_id='one_damage').save()
     Card(_id='2', name='Mana', cost=Resources(), effect_id='add_a').save()
     Deck(_id=1, card_ids=['1', '2'] * 10).save()
     Player(_id=1).save()

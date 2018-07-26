@@ -1,7 +1,6 @@
 import events
 import effects
-from functools import wraps
-from entities import Deck, Player, Match, GameOverException
+from entities import Deck, Player, Match, GameOverException, Effect
 
 
 class IllegalOperation(Exception):
@@ -92,6 +91,7 @@ def begin_turn(match, current_player):
 def on_refresh(player):
     for card in player.board:
         card.activated = False
+    player.resources.b = 100
 
 
 def on_draw(player):
@@ -122,15 +122,11 @@ def use_card(match, player_index, card_index):
     card = assert_get_resource_by_index(card_index, player.board, 'Card')
     if card.activated:
         raise IllegalOperation('This card was already been during this turn')
-    events.publish(match.log, events.Use, player.id, card.id)
-    on_use_card(match, player, card)
-    events.publish(match.log, events.Prompt, match.next_player(current=player).id)
-
-
-def on_use_card(match, player, card):
     card.activated = True
-    if card.effect_id:
-        effects.apply(match, player, card, card.effect_id)
+    events.publish(match.log, events.Use, player.id, card.id)
+    effect = Effect(owner_id=player.id, card_index=card_index)
+    match.stack.append(effect)
+    events.publish(match.log, events.Prompt, match.next_player(current=player).id)
 
 
 @user_action(events.Prompt)
@@ -141,8 +137,18 @@ def yield_play(match, player_index):
 
 
 def on_yield(match, player):
+    if ends_with_sequence(match.log, events.Prompt, events.Yield, events.Prompt, events.Yield):
+        events.publish(match.log, events.Solve)
+        while len(match.stack) > 0:
+            effect = match.stack.pop()
+            effect.apply(match)
     next_player = match.next_player(current=player)
     events.publish(match.log, events.Prompt, next_player.id)
+
+
+def ends_with_sequence(log, *event_names):
+    m = len(event_names)
+    return [e['name'] for e in log[-m:]] == list(event_names)
 
 
 @user_action(events.Prompt)

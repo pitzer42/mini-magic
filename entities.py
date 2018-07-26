@@ -1,5 +1,6 @@
-import events as events
-import storage as storage
+import events
+import storage
+import effects
 
 
 class ValueObject:
@@ -146,10 +147,13 @@ class Match(Entity):
         self.current_player_index = 0
         super(Match, self).__init__(*args, **kwargs)
         players = list()
-        if len(self.players) > 0:
-            for data in self.players:
-                players.append(Player(data))
-            self.players = players
+        for data in self.players:
+            players.append(Player(data))
+        self.players = players
+        stack = list()
+        for data in self.stack:
+            stack.append(Effect(data))
+        self.stack = stack
 
     def current_player(self):
         return self.players[self.current_player_index]
@@ -180,3 +184,16 @@ class Match(Entity):
 
 class GameOverException(Exception):
     pass
+
+
+class Effect(ValueObject):
+
+    def __init__(self, *args, **kwargs):
+        self.owner_id = None
+        self.card_index = None
+        super(Effect, self).__init__(*args, **kwargs)
+
+    def apply(self, match):
+        owner = match.get_player_by_id(self.owner_id)
+        card = owner.board[self.card_index]
+        effects.apply(match, owner, card)
