@@ -10,10 +10,6 @@ class TestHappyPath(APITestCase):
     def setUpClass(cls):
         scenarios.two_players()
 
-    def test(self):
-        match_id = self.match_setup()
-        self.play_turn(match_id)
-
     def match_setup(self):
         match_id = self.post_to_create_a_new_match()
         self.post_player_1_setup(match_id)
@@ -39,7 +35,7 @@ class TestHappyPath(APITestCase):
         self.assertEqual(last_event, events.Setup)
 
     def post_player_2_prompt(self, match_id):
-        request_data = {'player_id': 2, 'deck_id': 1}
+        request_data = {'player_id': 2, 'deck_id': 2}
         self.assertPost200('/matches/'+match_id+'/join', json=request_data)
         response = self.assertGet200('/matches/' + match_id)
         self.assertJson(response, 'players')
@@ -49,7 +45,14 @@ class TestHappyPath(APITestCase):
         last_event = match.log[-1]['name']
         self.assertEqual(last_event, events.Prompt)
 
-    def play_turn(self, match_id):
+    def test_simulated_match(self):
+        match_id = self.match_setup()
+        self.play_turn_1(match_id)
+        self.assertPost200('/matches/' + match_id + '/players/2/end_turn')
+        self.play_and_use_counter(match_id)
+        self.post_end_turn(match_id)
+
+    def play_turn_1(self, match_id):
         self.post_play_card(match_id)
         self.post_use_card_to_get_resources(match_id)
         self.post_use_resources_to_play_a_card(match_id)
@@ -57,14 +60,19 @@ class TestHappyPath(APITestCase):
         self.post_end_turn(match_id)
 
     def post_play_card(self, match_id):
+        response = self.assertGet200('/matches/' + match_id)
+        self.assertJson(response, 'players')
+        match = Match(response.json())
+        previous_board = len(match.current_player().board)
+        previous_hand = len(match.players[0].hand)
         self.assertPost200('/matches/' + match_id + '/players/1/play/1')
         response = self.assertGet200('/matches/' + match_id)
         self.assertJson(response, 'players')
         match = Match(response.json())
-        cards_in_the_board = len(match.current_player().board)
-        self.assertEqual(cards_in_the_board, 1)
+        board = len(match.current_player().board)
+        self.assertEqual(board, previous_board + 1)
         cards_in_hand = len(match.players[0].hand)
-        self.assertEqual(cards_in_hand, Match.INITIAL_HAND_SIZE)
+        self.assertEqual(cards_in_hand, previous_hand - 1)
         self.assertPost200('/matches/' + match_id + '/players/2/yield')
 
     def post_use_card_to_get_resources(self, match_id):
@@ -79,14 +87,18 @@ class TestHappyPath(APITestCase):
         self.assertPost200('/matches/' + match_id + '/players/2/yield')
 
     def post_use_resources_to_play_a_card(self, match_id):
+        response = self.assertGet200('/matches/' + match_id)
+        self.assertJson(response, 'players')
+        match = Match(response.json())
+        previous_board = len(match.players[0].board)
         self.assertPost200('/matches/' + match_id + '/players/1/play/1')
         response = self.assertGet200('/matches/' + match_id)
         self.assertJson(response, 'players')
         match = Match(response.json())
         resources = match.current_player().resources
         self.assertEqual(resources.a, 0)
-        board = match.players[0].board
-        self.assertEqual(len(board), 2)
+        cards_in_the_board = len(match.players[0].board)
+        self.assertEqual(cards_in_the_board, previous_board + 1)
         self.assertPost200('/matches/' + match_id + '/players/2/yield')
 
     def post_use_card_to_deal_damage(self, match_id):
@@ -106,3 +118,24 @@ class TestHappyPath(APITestCase):
         self.assertJson(response, 'players')
         match = Match(response.json())
         self.assertEqual(match.current_player_index, 1)
+
+    def play_and_use_counter(self, match_id):
+        response = self.assertGet200('/matches/' + match_id)
+        self.assertJson(response, 'players')
+        match = Match(response.json())
+        previous_hp = match.players[1].hp
+        self.assertPost200('/matches/' + match_id + '/players/1/use/2')
+        self.assertPost200('/matches/' + match_id + '/players/2/play/1')
+        self.assertPost200('/matches/' + match_id + '/players/1/yield')
+        self.assertPost200('/matches/' + match_id + '/players/2/use/1')
+        self.assertPost200('/matches/' + match_id + '/players/1/yield')
+        self.assertPost200('/matches/' + match_id + '/players/2/yield')
+        response = self.assertGet200('/matches/' + match_id)
+        self.assertJson(response, 'players')
+        match = Match(response.json())
+        hp = match.players[1].hp
+        self.assertEqual(len(match.stack), 0)
+        self.assertEqual(previous_hp, hp)
+
+
+

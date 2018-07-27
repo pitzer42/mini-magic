@@ -13,3 +13,7 @@ def add_b(match, owner, card):
 def one_damage(match, owner, card):
     target = match.next_player(current=owner)
     target.hp -= 1
+
+
+def counter(match, owner, card):
+    match.stack.pop(-1)

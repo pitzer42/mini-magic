@@ -1,5 +1,4 @@
 import events
-import effects
 from entities import Deck, Player, Match, GameOverException, Effect
 
 
@@ -34,6 +33,24 @@ def user_action(*legal_events):
                 player_id = match.players[args[1]].id
                 if prompted_id != player_id:
                     raise IllegalOperation('You were not prompted')
+            args = (match, ) + args[1:]
+            try:
+                return f(*args, **kwargs)
+            except GameOverException as e:
+                match.publish(events.GameOver, e.winner)
+            finally:
+                match.save()
+        return wrapped
+    return decorator
+
+
+def user_action_2(*legal_events):
+    def decorator(f):
+        def wrapped(*args, **kwargs):
+            match = assert_get_resource_by_id(args[0], Match)
+            event = match.last_event
+            if event['name'] not in legal_events:
+                raise IllegalOperation('This operation is not allowed during ' + event['name'])
             args = (match, ) + args[1:]
             try:
                 return f(*args, **kwargs)
@@ -99,7 +116,7 @@ def on_draw(player):
     player.hand.append(card)
 
 
-@user_action(events.Prompt)
+@user_action_2(events.Prompt)
 def play_card(match, player_index, card_index):
     player = assert_get_resource_by_index(player_index, match.players, 'Player')
     card = assert_get_resource_by_index(card_index, player.hand, 'Card')
@@ -116,7 +133,7 @@ def on_play(player, card_index, card):
     player.board.append(card)
 
 
-@user_action(events.Prompt)
+@user_action_2(events.Prompt)
 def use_card(match, player_index, card_index):
     player = assert_get_resource_by_index(player_index, match.players, 'Player')
     card = assert_get_resource_by_index(card_index, player.board, 'Card')
@@ -129,7 +146,7 @@ def use_card(match, player_index, card_index):
     events.publish(match.log, events.Prompt, match.next_player(current=player).id)
 
 
-@user_action(events.Prompt)
+@user_action_2(events.Prompt)
 def yield_play(match, player_index):
     player = assert_get_resource_by_index(player_index, match.players, 'Player')
     events.publish(match.log, events.Yield, player.id)
@@ -151,7 +168,7 @@ def ends_with_sequence(log, *event_names):
     return [e['name'] for e in log[-m:]] == list(event_names)
 
 
-@user_action(events.Prompt)
+@user_action_2(events.Prompt)
 def end_turn(match, player_index):
     player = assert_get_resource_by_index(player_index, match.players, 'Player')
     events.publish(match.log, events.TurnEnd, player.id)
