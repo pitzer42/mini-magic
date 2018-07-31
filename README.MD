@@ -6,7 +6,6 @@ Simplified online multiplayer TCG with rule-enforcement. Playable through a Web 
   - front-end
   - authenicatated actions
   - AI
-  - stack to hold actions until yield
   - more cards
   - more game modes
   - define the rule subset
